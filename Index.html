@@ -103,8 +103,8 @@
           <div class="col-md-6 mb-3"><div class="card card-body border-primary shadow-sm"><h5>📅 當日客訴統計</h5><div id="daySummary">載入中...</div></div></div>
           <div class="col-md-6 mb-3"><div class="card card-body border-info shadow-sm"><h5>📅 本月累積統計</h5><div id="monthSummary">載入中...</div></div></div>
           <div class="col-12 mb-3"><div class="card card-body bg-light border-danger"><h5 class="text-danger fw-bold m-0">🚨 未解決案件：<span id="unresolvedCount">0</span> 筆</h5></div></div>
-          <div class="col-12 mb-3"><div class="card card-body shadow-sm"><h5>📦 依品項（料號）分析</h5><div id="productSummary">載入中...</div></div></div>
-          <div class="col-12 mb-3"><div class="card card-body shadow-sm"><h5>📈 近30天每日客訴趨勢</h5><canvas id="dateChart" height="80"></canvas></div></div>
+          <div class="col-12 mb-3" id="adminProductBlock" style="display:none;"><div class="card card-body shadow-sm"><h5>📦 依品項（料號）分析</h5><div id="productSummary">載入中...</div></div></div>
+          <div class="col-12 mb-3" id="adminDateBlock" style="display:none;"><div class="card card-body shadow-sm"><h5>📈 近30天每日客訴趨勢</h5><canvas id="dateChart" height="80"></canvas></div></div>
         </div>
       </div>
 
@@ -171,6 +171,7 @@
   </div>
 
   <script>
+  var IS_ADMIN = <?= isAdmin ?>;
   var WH_PASSWORD = "93704671";
   var whUnlocked = false;
   var pendingProgressId = null;
@@ -189,6 +190,11 @@
     var local = new Date(now.getTime() + (8*60 - now.getTimezoneOffset()) * 60000);
     document.getElementById('dateInput').value = local.toISOString().slice(0,10);
     loadProductList();
+    // 只有 admin=1 才顯示進階分析區塊
+    if(IS_ADMIN) {
+      document.getElementById('adminProductBlock').style.display='';
+      document.getElementById('adminDateBlock').style.display='';
+    }
   }
 
   // [新增] 動態載入料號下拉選單
