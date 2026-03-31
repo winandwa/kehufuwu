@@ -387,17 +387,58 @@
       .processForm(payload);
   };
 
-  // ===== 複製 LINE 文字 =====
-  function copyLineText() {
+  // ===== 複製文字工具 =====
+  function copyText(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.top = '0';
+    ta.style.left = '0';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try { document.execCommand('copy'); alert('已複製！可直接貼到 LINE'); }
+    catch(e) { alert('複製失敗，請手動選取文字後複製'); }
+    document.body.removeChild(ta);
+  }
+
+  function copyLineText() { copyText(_lineText); }
+
+  function buildLineText(item) {
+    return '【單號】' + (item['訂單編號']||'') + '\n' +
+      '【購買的品項】' + (item['客訴產品']||'') + '\n' +
+      '【數量】\n' +
+      '【處理方式】' + (item['解決方向']||'') + '\n' +
+      '【訂單/退貨/客訴主因】' + (item['客訴分類']||'') + '\n' +
+      '【事件發生說明】\n' + (item['客訴內容']||'') + '\n' +
+      '【行政/行銷處理方式】' + (item['第一階段補充說明']||'') + '\n' +
+      '【聯繫/收件資訊】';
+  }
+
+  var _recordCache = {};
+
+  // ===== 複製歷史記錄的 LINE 文字 =====
+  var _recordCache = {};
+
+  function copyRecordLineText(id) {
+    var item = _recordCache[id];
+    if (!item) { alert('找不到資料'); return; }
+    var text =
+      '【單號】' + (item['訂單編號']||'') + '\n' +
+      '【購買的品項】' + (item['客訴產品']||'') + '\n' +
+      '【數量】\n' +
+      '【處理方式】' + (item['解決方向']||'') + '\n' +
+      '【訂單/退貨/客訴主因】' + (item['客訴分類']||'') + '\n' +
+      '【事件發生說明】\n' + (item['客訴內容']||'') + '\n' +
+      '【行政/行銷處理方式】' + (item['第一階段補充說明']||'') + '\n' +
+      '【聯繫/收件資訊】';
     if (navigator.clipboard) {
-      navigator.clipboard.writeText(_lineText).then(function(){ alert('已複製！可直接貼到 LINE'); });
+      navigator.clipboard.writeText(text).then(function(){ alert('已複製！可直接貼到 LINE'); });
     } else {
       var ta = document.createElement('textarea');
-      ta.value = _lineText;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta);
       alert('已複製！可直接貼到 LINE');
     }
   }
@@ -411,9 +452,13 @@
       .withSuccessHandler(function(data) {
         if (!data || data.length === 0) { listDiv.innerHTML='<div class="alert alert-light text-center">目前尚無客訴記錄</div>'; return; }
         var html = '';
+        _recordCache = {};
+        _recordCache = {};
         data.forEach(function(item) {
+          _recordCache[item['編碼']||''] = item;
           var isClosed = item['處理狀態'] === '已結案';
           var id = item['編碼'] || '';
+          _recordCache[id] = item; // 存入 cache 供複製用
           var imgHtml = '';
           (item['圖片網址清單'] ? item['圖片網址清單'].split(", ") : []).forEach(function(url) {
             var m = url.match(/[-\w]{25,}/);
@@ -439,7 +484,9 @@
             '<p class="mt-2 mb-1"><b>平台：</b>'+escText(item['客訴平台'])+' / <b>購買：</b>'+escText(item['購買平台'])+'</p>'+
             '<p class="mb-1"><b>內容：</b>'+escText(item['客訴內容'])+'</p>'+
             '<div class="progress-box"><b>📝 後續進度：</b><br>'+escText(item['後續進度記錄']||'尚無進度')+'</div>'+
-            '<div class="mt-2">'+imgHtml+'</div>'+actionArea+'</div></details></div>';
+            '<div class="mt-2">'+imgHtml+'</div>'+
+            '<div class="mt-2"><button class="btn btn-sm btn-outline-secondary" onclick="copyRecordLineText(\''+id+'\')">📋 複製 LINE 文字</button></div>'+
+            actionArea+'</div></details></div>';
         });
         listDiv.innerHTML = html;
       })
