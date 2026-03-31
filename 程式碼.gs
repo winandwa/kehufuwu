@@ -7,23 +7,28 @@ const CONFIG = {
 
 function doGet(e) {
   const brand = e.parameter.brand || "ALL";
+  const page = e.parameter.page || "index";
+
+  if (page === "report") {
+    const template = HtmlService.createTemplateFromFile('Report');
+    return template.evaluate()
+      .setTitle("客訴分析報表")
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  }
+
   const template = HtmlService.createTemplateFromFile('Index');
   template.brand = brand;
-  // brand=ALL 才是管理者，看得到進階分析；各品牌窗口看不到
-  template.isAdmin = (brand === "ALL");
   return template.evaluate()
-    .setTitle("客訴管理系統 - " + brand)
+    .setTitle("客服記錄系統 - " + brand)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-function doGetAdmin(e) {
-  const brand = e.parameter.brand || "ALL";
-  const template = HtmlService.createTemplateFromFile('Index');
-  template.brand = brand;
-  template.isAdmin = true;
+function doGetReport(e) {
+  const template = HtmlService.createTemplateFromFile('Report');
   return template.evaluate()
-    .setTitle("客訴管理系統（後台）- " + brand)
+    .setTitle("客訴分析報表")
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
