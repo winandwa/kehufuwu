@@ -2,6 +2,7 @@
 <html>
 <head>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     body { padding: 20px; background-color: #f8f9fa; font-family: "Microsoft JhengHei", sans-serif; }
     .card { margin-bottom: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
@@ -9,13 +10,80 @@
     .img-thumb { width: 80px; height: 80px; object-fit: cover; margin: 5px; border: 2px solid #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); cursor: pointer; }
     .progress-box { background: #f0f2f5; padding: 10px; border-radius: 8px; font-size: 0.9rem; white-space: pre-line; border-left: 4px solid #0d6efd; margin-top: 10px; }
     #loadingOverlay { display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.85); z-index: 9999; text-align: center; padding-top: 20%; }
+    .closed-card { border-left: 4px solid #198754 !important; }
+    .closed-banner { background: #d1e7dd; color: #0f5132; padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; margin-top: 10px; }
   </style>
 </head>
-<body onload="initDate()">
+<body onload="init()">
 
   <div id="loadingOverlay">
     <div class="spinner-border text-primary" role="status"></div>
     <h4 class="mt-3">資料處理中...</h4>
+  </div>
+
+  <!-- 汶和密碼 Modal -->
+  <div class="modal fade" id="whModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">🔒 汶和身份驗證</h5></div>
+        <div class="modal-body">
+          <p class="text-muted small mb-2">請輸入汶和專屬密碼</p>
+          <input type="password" id="whPassword" class="form-control" placeholder="請輸入密碼">
+          <div id="whError" class="text-danger small mt-1" style="display:none;">密碼錯誤</div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button>
+          <button class="btn btn-primary btn-sm" onclick="confirmWhPassword()">確認</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 料號詳細趨勢 Modal -->
+  <div class="modal fade" id="productModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title">📦 料號客訴詳情：<span id="productModalTitle"></span></h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row mb-3">
+            <div class="col-4 text-center"><div class="card card-body border-primary py-2"><div class="fs-4 fw-bold text-primary" id="pmTotal">-</div><div class="small text-muted">總客訴數</div></div></div>
+            <div class="col-4 text-center"><div class="card card-body border-danger py-2"><div class="fs-4 fw-bold text-danger" id="pmUnresolved">-</div><div class="small text-muted">未解決</div></div></div>
+            <div class="col-4 text-center"><div class="card card-body border-success py-2"><div class="fs-4 fw-bold text-success" id="pmClosed">-</div><div class="small text-muted">已結案</div></div></div>
+          </div>
+          <div class="row">
+            <div class="col-md-8 mb-3">
+              <h6 class="fw-bold">近30天每日趨勢</h6>
+              <canvas id="productDateChart" height="120"></canvas>
+            </div>
+            <div class="col-md-4 mb-3">
+              <h6 class="fw-bold">客訴分類分佈</h6>
+              <canvas id="productCatChart" height="160"></canvas>
+            </div>
+          </div>
+          <h6 class="fw-bold mt-2">最近5筆記錄</h6>
+          <div id="pmRecentList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 結案/重開 Modal -->
+  <div class="modal fade" id="statusModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+      <div class="modal-content">
+        <div class="modal-header" id="statusModalHeader">
+          <h5 class="modal-title" id="statusModalTitle"></h5>
+        </div>
+        <div class="modal-body" id="statusModalBody"></div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button>
+          <button class="btn btn-sm" id="statusModalConfirm" onclick="confirmStatusChange()">確認</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="container">
@@ -29,45 +97,48 @@
 
     <div class="tab-content">
 
+      <!-- 統計總結 -->
       <div class="tab-pane fade" id="summary">
         <div class="row mt-3">
           <div class="col-md-6 mb-3"><div class="card card-body border-primary shadow-sm"><h5>📅 當日客訴統計</h5><div id="daySummary">載入中...</div></div></div>
           <div class="col-md-6 mb-3"><div class="card card-body border-info shadow-sm"><h5>📅 本月累積統計</h5><div id="monthSummary">載入中...</div></div></div>
-          <div class="col-12"><div class="card card-body bg-light border-danger"><h5 class="text-danger fw-bold m-0">🚨 未解決案件：<span id="unresolvedCount">0</span> 筆</h5></div></div>
+          <div class="col-12 mb-3"><div class="card card-body bg-light border-danger"><h5 class="text-danger fw-bold m-0">🚨 未解決案件：<span id="unresolvedCount">0</span> 筆</h5></div></div>
+          <div class="col-12 mb-3"><div class="card card-body shadow-sm"><h5>📦 依品項（料號）分析</h5><div id="productSummary">載入中...</div></div></div>
+          <div class="col-12 mb-3"><div class="card card-body shadow-sm"><h5>📈 近30天每日客訴趨勢</h5><canvas id="dateChart" height="80"></canvas></div></div>
         </div>
       </div>
 
+      <!-- 新客訴記錄 -->
       <div class="tab-pane fade show active" id="record">
         <div id="successZone" class="alert alert-success text-center py-5 shadow" style="display:none;">
           <h2 class="display-4">🎉 送出成功</h2>
           <p class="lead">案件編碼：<strong id="newIdDisplay" class="text-danger"></strong></p>
           <button class="btn btn-primary btn-lg mt-3" onclick="resetForm()">填寫下一筆</button>
         </div>
-
         <form id="complaintForm">
           <input type="hidden" name="brand" value="<?= brand ?>">
           <div class="row">
             <div class="col-md-4 mb-3"><label class="fw-bold">客訴日期</label><input type="date" id="dateInput" name="date" class="form-control" required></div>
             <div class="col-md-4 mb-3"><label class="fw-bold">客人名稱</label><input type="text" name="customerName" class="form-control" required></div>
             <div class="col-md-4 mb-3"><label class="fw-bold">訂單編號</label><input type="text" name="orderNo" class="form-control"></div>
-
             <div class="col-md-6 mb-3">
               <label class="fw-bold">客訴平台</label>
               <input type="text" name="platform" class="form-control" list="platformOptions" placeholder="請選擇或直接輸入">
-              <datalist id="platformOptions">
-                <option value="91"> <option value="蝦皮"> <option value="LINE@"> <option value="電話"> <option value="FB">
-              </datalist>
+              <datalist id="platformOptions"><option value="91"><option value="蝦皮"><option value="LINE@"><option value="電話"><option value="FB"></datalist>
             </div>
-
             <div class="col-md-6 mb-3">
               <label class="fw-bold">購買平台</label>
               <input type="text" name="buyPlatform" class="form-control" list="buyOptions" placeholder="請選擇或直接輸入">
-              <datalist id="buyOptions">
-                <option value="91"> <option value="蝦皮"> <option value="MOMO"> <option value="門市">
-              </datalist>
+              <datalist id="buyOptions"><option value="91"><option value="蝦皮"><option value="MOMO"><option value="門市"></datalist>
             </div>
-
-            <div class="col-md-6 mb-3"><label class="fw-bold">客訴產品 (料號)</label><input type="text" name="productNo" class="form-control" required></div>
+            <!-- [修正] 客訴產品改為動態下拉選單 -->
+            <div class="col-md-6 mb-3">
+              <label class="fw-bold">客訴產品（料號）</label>
+              <select name="productNo" id="productSelect" class="form-select" required>
+                <option value="">-- 載入中，請稍候 --</option>
+              </select>
+            </div>
+            <div class="col-md-6 mb-3"><label class="fw-bold">產品批號 <span class="text-danger">*</span></label><input type="text" name="batchNo" class="form-control" placeholder="必填" required></div>
             <div class="col-md-6 mb-3">
               <label class="fw-bold">客訴分類</label>
               <select name="category" class="form-select">
@@ -84,15 +155,15 @@
             </select>
           </div>
           <div class="mb-3">
-            <label class="fw-bold">附件圖片 (上限10張)</label>
-            <!-- [修正小建議] 加上 10MB 單張限制提示 -->
+            <label class="fw-bold">附件圖片（上限10張，不支援影片）</label>
             <input type="file" id="fileInput" class="form-control" multiple accept="image/*" onchange="checkFiles(this)">
-            <div class="form-text text-muted">每張圖片建議 10MB 以內，過大可能導致上傳失敗</div>
+            <div class="form-text text-muted">每張圖片建議 10MB 以內</div>
           </div>
           <button type="submit" class="btn btn-primary btn-lg w-100 shadow">確認上傳並生成編碼</button>
         </form>
       </div>
 
+      <!-- 歷史查詢 -->
       <div class="tab-pane fade" id="query">
         <div id="recordList" class="mt-3">載入中...</div>
       </div>
@@ -100,175 +171,322 @@
   </div>
 
   <script>
-  // [修正小建議] 使用 GMT+8 時間避免深夜顯示昨天日期
-  function initDate() {
-    const now = new Date();
-    const offset = 8 * 60;
-    const local = new Date(now.getTime() + (offset - now.getTimezoneOffset()) * 60000);
-    document.getElementById('dateInput').value = local.toISOString().slice(0, 10);
+  var WH_PASSWORD = "93704671";
+  var whUnlocked = false;
+  var pendingProgressId = null;
+  var pendingProgressBtn = null;
+  var pendingStatusId = null;
+  var pendingStatusAction = null;
+  var dateChartInstance = null;
+
+  function escText(s) {
+    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   }
 
-  // [修正6] XSS 防護：跳脫 HTML 特殊字元
-  function escHtml(s) {
-    return String(s)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
+  // [修正] 頁面載入時同時設定日期並載入料號
+  function init() {
+    var now = new Date();
+    var local = new Date(now.getTime() + (8*60 - now.getTimezoneOffset()) * 60000);
+    document.getElementById('dateInput').value = local.toISOString().slice(0,10);
+    loadProductList();
+  }
+
+  // [新增] 動態載入料號下拉選單
+  function loadProductList() {
+    var brand = "<?= brand ?>";
+    var select = document.getElementById('productSelect');
+    google.script.run
+      .withSuccessHandler(function(products) {
+        select.innerHTML = '<option value="">-- 請選擇料號 --</option>';
+        if (!products || products.length === 0) {
+          select.innerHTML = '<option value="">（此品牌尚無料號設定）</option>';
+          return;
+        }
+        products.forEach(function(p) {
+          var opt = document.createElement('option');
+          opt.value = p;
+          opt.text = p;
+          select.appendChild(opt);
+        });
+      })
+      .withFailureHandler(function() {
+        select.innerHTML = '<option value="">（料號載入失敗，請重新整理）</option>';
+      })
+      .getProductList(brand);
   }
 
   function checkFiles(input) {
-    if (input.files.length > 10) { alert("最多10張圖片！"); input.value = ""; return; }
-    // [修正小建議] 限制每張圖片大小上限 10MB
-    const maxSize = 10 * 1024 * 1024;
-    for (let i = 0; i < input.files.length; i++) {
-      if (input.files[i].size > maxSize) {
-        alert(`第 ${i + 1} 張圖片超過 10MB，請重新選擇`);
-        input.value = "";
-        return;
-      }
+    if (input.files.length > 10) { alert("最多10張圖片！"); input.value=""; return; }
+    for (var i=0; i<input.files.length; i++) {
+      if (input.files[i].size > 10*1024*1024) { alert("第"+(i+1)+"張超過10MB"); input.value=""; return; }
     }
   }
 
   function resetForm() {
     document.getElementById('complaintForm').reset();
-    initDate();
-    document.getElementById('complaintForm').style.display = "block";
-    document.getElementById('successZone').style.display = "none";
+    init();
+    document.getElementById('complaintForm').style.display="block";
+    document.getElementById('successZone').style.display="none";
   }
 
   document.getElementById('complaintForm').onsubmit = async function(e) {
     e.preventDefault();
-    document.getElementById('loadingOverlay').style.display = "block";
-    const form = e.target;
-    const files = document.getElementById('fileInput').files;
-    const fileData = [];
-    for (let i = 0; i < files.length; i++) {
-      const base64 = await new Promise((res) => { const r = new FileReader(); r.onload = (ev) => res(ev.target.result); r.readAsDataURL(files[i]); });
-      fileData.push({ fileName: files[i].name, base64String: base64 });
+    var productNo = document.getElementById('productSelect').value;
+    if (!productNo) { alert("請選擇客訴產品料號"); return; }
+    document.getElementById('loadingOverlay').style.display="block";
+    var form = e.target;
+    var files = document.getElementById('fileInput').files;
+    var fileData = [];
+    for (var i=0; i<files.length; i++) {
+      var b64 = await new Promise(function(res){var r=new FileReader();r.onload=function(ev){res(ev.target.result);};r.readAsDataURL(files[i]);});
+      fileData.push({fileName:files[i].name, base64String:b64});
     }
-    const payload = {
-      brand: form.brand.value, date: form.date.value, customerName: form.customerName.value,
-      orderNo: form.orderNo.value, platform: form.platform.value, buyPlatform: form.buyPlatform.value,
-      productNo: form.productNo.value, category: form.category.value, content: form.content.value,
-      comment: form.comment.value, solution: form.solution.value, fileData: fileData
-    };
     google.script.run
-      .withSuccessHandler(res => {
-        document.getElementById('loadingOverlay').style.display = "none";
-        if (res.status === "success") {
-          form.style.display = "none";
-          document.getElementById('successZone').style.display = "block";
-          document.getElementById('newIdDisplay').innerText = res.id;
-        } else {
-          alert("送出失敗：" + res.message);
-        }
+      .withSuccessHandler(function(res){
+        document.getElementById('loadingOverlay').style.display="none";
+        if(res.status==="success"){form.style.display="none";document.getElementById('successZone').style.display="block";document.getElementById('newIdDisplay').innerText=res.id;}
+        else{alert("送出失敗："+res.message);}
       })
-      // [修正2] 補上 withFailureHandler，避免送出失敗時畫面卡在 loading
-      .withFailureHandler(err => {
-        document.getElementById('loadingOverlay').style.display = "none";
-        alert("送出失敗，請稍後再試：" + err);
-      })
-      .processForm(payload);
+      .withFailureHandler(function(err){document.getElementById('loadingOverlay').style.display="none";alert("送出失敗："+err);})
+      .processForm({
+        brand:form.brand.value, date:form.date.value, customerName:form.customerName.value,
+        orderNo:form.orderNo.value, platform:form.platform.value, buyPlatform:form.buyPlatform.value,
+        productNo:productNo, batchNo:form.batchNo.value,
+        category:form.category.value, content:form.content.value,
+        comment:form.comment.value, solution:form.solution.value, fileData:fileData
+      });
   };
 
   function loadRecords() {
-    const brand = "<?= brand ?>";
-    const listDiv = document.getElementById('recordList');
+    var brand = "<?= brand ?>";
+    var listDiv = document.getElementById('recordList');
     listDiv.innerHTML = "讀取中...";
     google.script.run
-      .withSuccessHandler(data => {
-        if (!data || data.length === 0) {
-          listDiv.innerHTML = '<div class="alert alert-light text-center">目前尚無此品牌的客訴記錄</div>';
-          return;
-        }
-        let html = '';
-        data.forEach(item => {
-          const imgList = item.圖片網址清單 ? item.圖片網址清單.split(", ") : [];
-          let imgHtml = '';
-          imgList.forEach(url => {
-            const fileId = url.match(/[-\w]{25,}/);
-            if (fileId) {
-              const thumbUrl = `https://drive.google.com/thumbnail?id=${fileId[0]}&sz=w200`;
-              // [修正6] 對 url 做跳脫避免 XSS
-              const safeUrl = escHtml(url);
-              imgHtml += `<a href="${safeUrl}" target="_blank"><img src="${thumbUrl}" class="img-thumb" onerror="this.src='https://placehold.co/80x80?text=Private+File'"></a>`;
-            }
+      .withSuccessHandler(function(data){
+        if(!data||data.length===0){listDiv.innerHTML='<div class="alert alert-light text-center">目前尚無客訴記錄</div>';return;}
+        var html='';
+        data.forEach(function(item){
+          var isClosed = item['處理狀態']==='已結案';
+          var id = item['編碼']||'';
+          var imgHtml='';
+          (item['圖片網址清單']?item['圖片網址清單'].split(", "):[]).forEach(function(url){
+            var m=url.match(/[-\w]{25,}/);
+            if(m){imgHtml+='<a href="'+url+'" target="_blank"><img src="https://drive.google.com/thumbnail?id='+m[0]+'&sz=w200" class="img-thumb" onerror="this.src=\'https://placehold.co/80x80?text=No+Image\'"></a>';}
           });
-          // [修正6] 所有使用者輸入欄位皆做 escHtml 處理
-          html += `<div class="card card-body shadow-sm"><details><summary class="h6 m-0">
-            <span class="badge bg-primary status-badge">${escHtml(item.處理狀態)}</span>
-            [${escHtml(item.客訴日期)}] <b>${escHtml(item.編碼)}</b> - ${escHtml(item.客人名稱)}</summary>
-            <div class="mt-3 border-top pt-2">
-              <div class="row small">
-                <div class="col-6"><b>單號：</b>${escHtml(item.訂單編號)}</div>
-                <div class="col-6 text-end"><b>料號：</b>${escHtml(item.客訴產品)}</div>
-              </div>
-              <p class="mt-2 mb-1"><b>平台：</b>${escHtml(item.客訴平台)} / <b>購買：</b>${escHtml(item.購買平台)}</p>
-              <p class="mb-1"><b>內容：</b>${escHtml(item.客訴內容)}</p>
-              <div class="progress-box"><b>📝 後續進度：</b><br>${escHtml(item.後續進度記錄 || '尚無進度')}</div>
-              <div class="mt-2">${imgHtml}</div>
-              <div class="mt-3 p-2 bg-white border rounded">
-                <div class="input-group">
-                  <textarea class="form-control form-control-sm" id="up_${escHtml(item.編碼)}" placeholder="補充後續處理進度..."></textarea>
-                  <button class="btn btn-sm btn-primary" onclick="addProgress('${escHtml(item.編碼)}', this)">更新</button>
-                </div>
-              </div>
-            </div></details></div>`;
+          var batchNo = item['產品批號'] ? '<span class="badge bg-secondary ms-1">批號：'+escText(item['產品批號'])+'</span>' : '';
+          var statusBadge = isClosed
+            ? '<span class="badge bg-success status-badge">✅ 已結案</span>'
+            : '<span class="badge bg-warning text-dark status-badge">⚠️ 未解決</span>';
+          var actionArea = isClosed
+            ? '<div class="closed-banner mt-2">✅ 已結案 — 進度已鎖定</div><div class="mt-2"><button class="btn btn-sm btn-outline-warning" onclick="askStatusChange(\''+id+'\',\'reopen\')">🔄 重新開啟</button></div>'
+            : '<div class="mt-3 p-2 bg-white border rounded">'+
+              '<div class="mb-2"><label class="form-label small fw-bold mb-1">更新身份</label>'+
+              '<select class="form-select form-select-sm" id="role_'+id+'"><option value="brand">品牌客服</option><option value="wh">汶和 🔒</option></select></div>'+
+              '<div class="input-group mb-2">'+
+              '<textarea class="form-control form-control-sm" id="up_'+id+'" placeholder="補充後續處理進度..."></textarea>'+
+              '<button class="btn btn-sm btn-primary" onclick="addProgress(\''+id+'\',this)">更新</button>'+
+              '</div>'+
+              '<button class="btn btn-sm btn-success w-100" onclick="askStatusChange(\''+id+'\',\'close\')">✅ 品牌客服結案</button>'+
+              '</div>';
+
+          html += '<div class="card card-body shadow-sm'+(isClosed?' closed-card':'')+'"><details>'+
+            '<summary class="h6 m-0">'+statusBadge+' ['+escText(item['客訴日期'])+'] <b>'+escText(id)+'</b> - '+escText(item['客人名稱'])+'</summary>'+
+            '<div class="mt-3 border-top pt-2">'+
+            '<div class="row small"><div class="col-6"><b>單號：</b>'+escText(item['訂單編號'])+'</div>'+
+            '<div class="col-6 text-end"><b>料號：</b>'+escText(item['客訴產品'])+batchNo+'</div></div>'+
+            '<p class="mt-2 mb-1"><b>平台：</b>'+escText(item['客訴平台'])+' / <b>購買：</b>'+escText(item['購買平台'])+'</p>'+
+            '<p class="mb-1"><b>內容：</b>'+escText(item['客訴內容'])+'</p>'+
+            '<div class="progress-box"><b>📝 後續進度：</b><br>'+escText(item['後續進度記錄']||'尚無進度')+'</div>'+
+            '<div class="mt-2">'+imgHtml+'</div>'+
+            actionArea+'</div></details></div>';
         });
-        listDiv.innerHTML = html;
+        listDiv.innerHTML=html;
       })
-      .withFailureHandler(err => {
-        listDiv.innerHTML = '<div class="alert alert-danger">讀取失敗：' + escHtml(String(err)) + '</div>';
-      })
+      .withFailureHandler(function(err){listDiv.innerHTML='<div class="alert alert-danger">讀取失敗：'+escText(String(err))+'</div>';})
       .getBrandRecords(brand);
   }
 
   function addProgress(id, btn) {
-    const input = document.getElementById('up_' + id);
-    const text = input.value.trim();
-    if (!text) return;
-    btn.disabled = true;
-    const originalText = btn.innerText;
-    btn.innerText = "稍候..";
-    google.script.run
-      .withSuccessHandler(() => {
-        alert("更新成功！");
-        input.value = "";
-        loadRecords();
-      })
-      .withFailureHandler(err => {
-        alert("更新失敗：" + err);
-        // [修正小建議] 失敗時同時還原按鈕文字
-        btn.disabled = false;
-        btn.innerText = originalText;
-      })
-      .updateComplaintProgress(id, text);
+    var text = document.getElementById('up_'+id).value.trim();
+    if(!text) return;
+    var role = document.getElementById('role_'+id).value;
+    if(role==='wh'&&!whUnlocked){
+      pendingProgressId=id; pendingProgressBtn=btn;
+      document.getElementById('whPassword').value='';
+      document.getElementById('whError').style.display='none';
+      new bootstrap.Modal(document.getElementById('whModal')).show();
+      return;
+    }
+    submitProgress(id, role==='wh'?'[汶和] '+text:text, btn);
   }
 
-  function loadSummary() {
-    const brand = "<?= brand ?>";
-    const dayDiv = document.getElementById('daySummary');
-    const monthDiv = document.getElementById('monthSummary');
-    dayDiv.innerHTML = '<div class="spinner-border spinner-border-sm"></div> 載入中..';
-    monthDiv.innerHTML = '<div class="spinner-border spinner-border-sm"></div> 載入中..';
+  function confirmWhPassword(){
+    if(document.getElementById('whPassword').value!==WH_PASSWORD){document.getElementById('whError').style.display='block';return;}
+    whUnlocked=true;
+    bootstrap.Modal.getInstance(document.getElementById('whModal')).hide();
+    if(pendingProgressId){
+      var text='[汶和] '+document.getElementById('up_'+pendingProgressId).value.trim();
+      submitProgress(pendingProgressId,text,pendingProgressBtn);
+      pendingProgressId=null;pendingProgressBtn=null;
+    }
+  }
 
+  function submitProgress(id,text,btn){
+    btn.disabled=true;var orig=btn.innerText;btn.innerText='稍候..';
     google.script.run
-      .withSuccessHandler(res => {
-        dayDiv.innerHTML = res.day.length
-          ? '<ul class="list-group list-group-flush">' + res.day.map(s => `<li class="list-group-item d-flex justify-content-between align-items-center">${escHtml(s.cat)}<span class="badge bg-primary rounded-pill">${s.count}</span></li>`).join('') + '</ul>'
-          : "今日尚無資料";
-        monthDiv.innerHTML = res.month.length
-          ? '<ul class="list-group list-group-flush">' + res.month.map(s => `<li class="list-group-item d-flex justify-content-between align-items-center">${escHtml(s.cat)}<span class="badge bg-info text-dark rounded-pill">${s.count}</span></li>`).join('') + '</ul>'
-          : "本月尚無資料";
-        document.getElementById('unresolvedCount').innerText = res.unresolved;
+      .withSuccessHandler(function(){alert("更新成功！");document.getElementById('up_'+id).value='';loadRecords();})
+      .withFailureHandler(function(err){alert("更新失敗："+err);btn.disabled=false;btn.innerText=orig;})
+      .updateComplaintProgress(id,text);
+  }
+
+  function askStatusChange(id,action){
+    pendingStatusId=id;pendingStatusAction=action;
+    var h=document.getElementById('statusModalHeader'),t=document.getElementById('statusModalTitle');
+    var b=document.getElementById('statusModalBody'),c=document.getElementById('statusModalConfirm');
+    if(action==='close'){
+      h.className='modal-header bg-success text-white';t.innerText='✅ 確認結案';
+      b.innerHTML='<p>結案後進度將鎖定，品牌客服可重新開啟。</p><p class="text-muted small">案件：'+escText(id)+'</p>';
+      c.className='btn btn-success btn-sm';c.innerText='確認結案';
+    }else{
+      h.className='modal-header bg-warning';t.innerText='🔄 確認重新開啟';
+      b.innerHTML='<p>重新開啟後可繼續更新進度。</p><p class="text-muted small">案件：'+escText(id)+'</p>';
+      c.className='btn btn-warning btn-sm';c.innerText='確認重新開啟';
+    }
+    new bootstrap.Modal(document.getElementById('statusModal')).show();
+  }
+
+  function confirmStatusChange(){
+    bootstrap.Modal.getInstance(document.getElementById('statusModal')).hide();
+    google.script.run
+      .withSuccessHandler(function(res){res.status==='success'?loadRecords():alert("操作失敗："+res.message);})
+      .withFailureHandler(function(err){alert("操作失敗："+err);})
+      .setComplaintStatus(pendingStatusId, pendingStatusAction==='close'?'已結案':'未解決');
+  }
+
+  function loadSummary(){
+    var brand="<?= brand ?>";
+    document.getElementById('daySummary').innerHTML='<div class="spinner-border spinner-border-sm"></div> 載入中..';
+    document.getElementById('monthSummary').innerHTML='<div class="spinner-border spinner-border-sm"></div> 載入中..';
+    document.getElementById('productSummary').innerHTML='<div class="spinner-border spinner-border-sm"></div> 載入中..';
+    google.script.run
+      .withSuccessHandler(function(res){
+        document.getElementById('daySummary').innerHTML=res.day.length
+          ?'<ul class="list-group list-group-flush">'+res.day.map(function(s){return'<li class="list-group-item d-flex justify-content-between align-items-center">'+escText(s.cat)+'<span class="badge bg-primary rounded-pill">'+s.count+'</span></li>';}).join('')+'</ul>'
+          :'今日尚無資料';
+        document.getElementById('monthSummary').innerHTML=res.month.length
+          ?'<ul class="list-group list-group-flush">'+res.month.map(function(s){return'<li class="list-group-item d-flex justify-content-between align-items-center">'+escText(s.cat)+'<span class="badge bg-info text-dark rounded-pill">'+s.count+'</span></li>';}).join('')+'</ul>'
+          :'本月尚無資料';
+        document.getElementById('unresolvedCount').innerText=res.unresolved;
+        // 儲存完整資料供料號 Modal 使用
+        window._dashData = res;
+
+        if(res.products&&res.products.length){
+          var maxT=res.products[0].total||1;
+          var ph='<div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0"><thead><tr><th>料號</th><th>總計</th><th>未解決</th><th style="width:40%">比例</th></tr></thead><tbody>';
+          res.products.forEach(function(p){
+            var pct=Math.round(p.total/maxT*100);
+            ph+='<tr style="cursor:pointer" onclick="showProductDetail(\''+escText(p.product)+'\')">'+
+              '<td><b class="text-primary text-decoration-underline">'+escText(p.product)+'</b></td>'+
+              '<td>'+p.total+'</td>'+
+              '<td><span class="badge bg-danger">'+p.unresolved+'</span></td>'+
+              '<td><div style="background:#e9ecef;border-radius:4px;"><div style="width:'+pct+'%;height:18px;background:#0d6efd;border-radius:4px;"></div></div></td></tr>';
+          });
+          document.getElementById('productSummary').innerHTML=ph+'</tbody></table></div><p class="text-muted small mt-1 mb-0">💡 點擊料號可查看詳細趨勢</p>';
+        }else{document.getElementById('productSummary').innerHTML='尚無品項資料';}
+        if(dateChartInstance){dateChartInstance.destroy();}
+        dateChartInstance=new Chart(document.getElementById('dateChart').getContext('2d'),{
+          type:'line',
+          data:{labels:res.dates.map(function(d){return d.date.slice(5);}),datasets:[{label:'客訴件數',data:res.dates.map(function(d){return d.count;}),borderColor:'#0d6efd',backgroundColor:'rgba(13,110,253,0.08)',tension:0.3,fill:true,pointRadius:3}]},
+          options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}
+        });
       })
-      .withFailureHandler(err => {
-        dayDiv.innerHTML = "載入失敗";
-        monthDiv.innerHTML = "載入失敗";
+      .withFailureHandler(function(err){
+        document.getElementById('daySummary').innerHTML='載入失敗：'+escText(String(err));
+        document.getElementById('monthSummary').innerHTML='載入失敗';
+        document.getElementById('productSummary').innerHTML='載入失敗';
       })
       .getDashboardData(brand);
+  }
+
+  // ===== 料號詳細趨勢 Modal =====
+  var productDateChartInst = null;
+  var productCatChartInst = null;
+
+  function showProductDetail(product) {
+    var brand = "<?= brand ?>";
+    document.getElementById('productModalTitle').innerText = product;
+    document.getElementById('pmTotal').innerText = '-';
+    document.getElementById('pmUnresolved').innerText = '-';
+    document.getElementById('pmClosed').innerText = '-';
+    document.getElementById('pmRecentList').innerHTML = '<div class="spinner-border spinner-border-sm"></div> 載入中...';
+    new bootstrap.Modal(document.getElementById('productModal')).show();
+
+    google.script.run
+      .withSuccessHandler(function(data) {
+        var filtered = data.filter(function(r){ return r['客訴產品'] === product; });
+        var total = filtered.length;
+        var unresolved = filtered.filter(function(r){ return r['處理狀態'] !== '已結案'; }).length;
+        var closed = total - unresolved;
+        document.getElementById('pmTotal').innerText = total;
+        document.getElementById('pmUnresolved').innerText = unresolved;
+        document.getElementById('pmClosed').innerText = closed;
+
+        // 近30天趨勢
+        var now = new Date();
+        var dateMap = {};
+        var dateLabels = [];
+        var dateCounts = [];
+        for(var i=29;i>=0;i--){
+          var d = new Date(now.getTime()-i*86400000);
+          var ds = d.toISOString().slice(0,10);
+          dateMap[ds]=0;
+          dateLabels.push(ds.slice(5));
+        }
+        filtered.forEach(function(r){
+          var d = r['客訴日期'] ? r['客訴日期'].slice(0,10) : '';
+          if(dateMap.hasOwnProperty(d)) dateMap[d]++;
+        });
+        Object.keys(dateMap).sort().forEach(function(k){ dateCounts.push(dateMap[k]); });
+        if(productDateChartInst){ productDateChartInst.destroy(); }
+        productDateChartInst = new Chart(document.getElementById('productDateChart').getContext('2d'),{
+          type:'line',
+          data:{labels:dateLabels,datasets:[{label:'件數',data:dateCounts,borderColor:'#0d6efd',backgroundColor:'rgba(13,110,253,0.08)',tension:0.3,fill:true,pointRadius:3}]},
+          options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}
+        });
+
+        // 客訴分類圓餅圖
+        var catMap = {};
+        filtered.forEach(function(r){
+          var cat = r['客訴分類']||'未分類';
+          catMap[cat]=(catMap[cat]||0)+1;
+        });
+        var catLabels=Object.keys(catMap);
+        var catData=catLabels.map(function(k){return catMap[k];});
+        var catColors=['#0d6efd','#fd7e14','#198754','#dc3545','#6f42c1','#20c997'];
+        if(productCatChartInst){ productCatChartInst.destroy(); }
+        productCatChartInst = new Chart(document.getElementById('productCatChart').getContext('2d'),{
+          type:'doughnut',
+          data:{labels:catLabels,datasets:[{data:catData,backgroundColor:catColors.slice(0,catLabels.length)}]},
+          options:{plugins:{legend:{position:'bottom',labels:{font:{size:11}}}}}
+        });
+
+        // 最近5筆記錄
+        var recent = filtered.slice(0,5);
+        var rHtml = recent.length ? '' : '<div class="text-muted small">尚無記錄</div>';
+        recent.forEach(function(r){
+          var statusCls = r['處理狀態']==='已結案'?'bg-success':'bg-warning text-dark';
+          rHtml+='<div class="d-flex justify-content-between align-items-start border-bottom py-2 small">'+
+            '<div><b>'+escText(r['編碼'])+'</b> <span class="text-muted">'+escText(r['客訴日期'])+'</span><br>'+
+            escText(r['客訴內容']?r['客訴內容'].slice(0,40)+(r['客訴內容'].length>40?'…':''):'')+'</div>'+
+            '<span class="badge '+statusCls+' ms-2 flex-shrink-0">'+escText(r['處理狀態'])+'</span>'+
+            '</div>';
+        });
+        document.getElementById('pmRecentList').innerHTML = rHtml;
+      })
+      .withFailureHandler(function(err){
+        document.getElementById('pmRecentList').innerHTML='<div class="alert alert-danger">載入失敗：'+escText(String(err))+'</div>';
+      })
+      .getBrandRecords(brand);
   }
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
