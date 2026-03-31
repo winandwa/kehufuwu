@@ -20,7 +20,7 @@
 
   <div class="container">
     <h3 class="mb-4 text-primary fw-bold">客服記錄系統 - <?= brand ?></h3>
-    
+
     <ul class="nav nav-tabs mb-4" id="myTab">
       <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#record">新客訴記錄</button></li>
       <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#query" onclick="loadRecords()">歷史查詢</button></li>
@@ -28,7 +28,7 @@
     </ul>
 
     <div class="tab-content">
-      
+
       <div class="tab-pane fade" id="summary">
         <div class="row mt-3">
           <div class="col-md-6 mb-3"><div class="card card-body border-primary shadow-sm"><h5>📅 當日客訴統計</h5><div id="daySummary">載入中...</div></div></div>
@@ -50,7 +50,7 @@
             <div class="col-md-4 mb-3"><label class="fw-bold">客訴日期</label><input type="date" id="dateInput" name="date" class="form-control" required></div>
             <div class="col-md-4 mb-3"><label class="fw-bold">客人名稱</label><input type="text" name="customerName" class="form-control" required></div>
             <div class="col-md-4 mb-3"><label class="fw-bold">訂單編號</label><input type="text" name="orderNo" class="form-control"></div>
-            
+
             <div class="col-md-6 mb-3">
               <label class="fw-bold">客訴平台</label>
               <input type="text" name="platform" class="form-control" list="platformOptions" placeholder="請選擇或直接輸入">
@@ -58,7 +58,7 @@
                 <option value="91"> <option value="蝦皮"> <option value="LINE@"> <option value="電話"> <option value="FB">
               </datalist>
             </div>
-            
+
             <div class="col-md-6 mb-3">
               <label class="fw-bold">購買平台</label>
               <input type="text" name="buyPlatform" class="form-control" list="buyOptions" placeholder="請選擇或直接輸入">
@@ -83,7 +83,12 @@
               <option>補償/退換貨</option><option>請汶和解答</option><option>請汶和延伸供應商</option>
             </select>
           </div>
-          <div class="mb-3"><label class="fw-bold">附件圖片 (上限10張)</label><input type="file" id="fileInput" class="form-control" multiple accept="image/*" onchange="checkFiles(this)"></div>
+          <div class="mb-3">
+            <label class="fw-bold">附件圖片 (上限10張)</label>
+            <!-- [修正小建議] 加上 10MB 單張限制提示 -->
+            <input type="file" id="fileInput" class="form-control" multiple accept="image/*" onchange="checkFiles(this)">
+            <div class="form-text text-muted">每張圖片建議 10MB 以內，過大可能導致上傳失敗</div>
+          </div>
           <button type="submit" class="btn btn-primary btn-lg w-100 shadow">確認上傳並生成編碼</button>
         </form>
       </div>
@@ -95,9 +100,43 @@
   </div>
 
   <script>
-  function initDate() { document.getElementById('dateInput').valueAsDate = new Date(); }
-  function checkFiles(input) { if (input.files.length > 10) { alert("最多10張圖片！"); input.value = ""; } }
-  function resetForm() { document.getElementById('complaintForm').reset(); initDate(); document.getElementById('complaintForm').style.display = "block"; document.getElementById('successZone').style.display = "none"; }
+  // [修正小建議] 使用 GMT+8 時間避免深夜顯示昨天日期
+  function initDate() {
+    const now = new Date();
+    const offset = 8 * 60;
+    const local = new Date(now.getTime() + (offset - now.getTimezoneOffset()) * 60000);
+    document.getElementById('dateInput').value = local.toISOString().slice(0, 10);
+  }
+
+  // [修正6] XSS 防護：跳脫 HTML 特殊字元
+  function escHtml(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function checkFiles(input) {
+    if (input.files.length > 10) { alert("最多10張圖片！"); input.value = ""; return; }
+    // [修正小建議] 限制每張圖片大小上限 10MB
+    const maxSize = 10 * 1024 * 1024;
+    for (let i = 0; i < input.files.length; i++) {
+      if (input.files[i].size > maxSize) {
+        alert(`第 ${i + 1} 張圖片超過 10MB，請重新選擇`);
+        input.value = "";
+        return;
+      }
+    }
+  }
+
+  function resetForm() {
+    document.getElementById('complaintForm').reset();
+    initDate();
+    document.getElementById('complaintForm').style.display = "block";
+    document.getElementById('successZone').style.display = "none";
+  }
 
   document.getElementById('complaintForm').onsubmit = async function(e) {
     e.preventDefault();
@@ -109,80 +148,128 @@
       const base64 = await new Promise((res) => { const r = new FileReader(); r.onload = (ev) => res(ev.target.result); r.readAsDataURL(files[i]); });
       fileData.push({ fileName: files[i].name, base64String: base64 });
     }
-    const payload = { brand: form.brand.value, date: form.date.value, customerName: form.customerName.value, orderNo: form.orderNo.value, platform: form.platform.value, buyPlatform: form.buyPlatform.value, productNo: form.productNo.value, category: form.category.value, content: form.content.value, comment: form.comment.value, solution: form.solution.value, fileData: fileData };
-    google.script.run.withSuccessHandler(res => {
-      document.getElementById('loadingOverlay').style.display = "none";
-      if(res.status === "success") { form.style.display = "none"; document.getElementById('successZone').style.display = "block"; document.getElementById('newIdDisplay').innerText = res.id; }
-    }).processForm(payload);
+    const payload = {
+      brand: form.brand.value, date: form.date.value, customerName: form.customerName.value,
+      orderNo: form.orderNo.value, platform: form.platform.value, buyPlatform: form.buyPlatform.value,
+      productNo: form.productNo.value, category: form.category.value, content: form.content.value,
+      comment: form.comment.value, solution: form.solution.value, fileData: fileData
+    };
+    google.script.run
+      .withSuccessHandler(res => {
+        document.getElementById('loadingOverlay').style.display = "none";
+        if (res.status === "success") {
+          form.style.display = "none";
+          document.getElementById('successZone').style.display = "block";
+          document.getElementById('newIdDisplay').innerText = res.id;
+        } else {
+          alert("送出失敗：" + res.message);
+        }
+      })
+      // [修正2] 補上 withFailureHandler，避免送出失敗時畫面卡在 loading
+      .withFailureHandler(err => {
+        document.getElementById('loadingOverlay').style.display = "none";
+        alert("送出失敗，請稍後再試：" + err);
+      })
+      .processForm(payload);
   };
-  
+
   function loadRecords() {
     const brand = "<?= brand ?>";
     const listDiv = document.getElementById('recordList');
     listDiv.innerHTML = "讀取中...";
     google.script.run
-  .withSuccessHandler(data => {
-    if (!data || data.length === 0) { listDiv.innerHTML = '<div class="alert alert-light text-center">目前尚無此品牌的客訴記錄</div>'; return; }
-    let html = '';
-    data.forEach(item => {
-      const imgList = item.圖片網址清單 ? item.圖片網址清單.split(", ") : [];
-      let imgHtml = '';
-      imgList.forEach(url => {
-        const fileId = url.match(/[-\w]{25,}/);
-        if (fileId) {
-          const thumbUrl = `https://drive.google.com/thumbnail?id=${fileId[0]}&sz=w200`;
-          imgHtml += `<a href="${url}" target="_blank"><img src="${thumbUrl}" class="img-thumb" onerror="this.src='https://placehold.co/80x80?text=Private+File'"></a>`;
+      .withSuccessHandler(data => {
+        if (!data || data.length === 0) {
+          listDiv.innerHTML = '<div class="alert alert-light text-center">目前尚無此品牌的客訴記錄</div>';
+          return;
         }
-      });
-      html += `<div class="card card-body shadow-sm"><details><summary class="h6 m-0"><span class="badge bg-primary status-badge">${item.處理狀態}</span> [${item.客訴日期}] <b>${item.編碼}</b> - ${item.客人名稱}</summary>
-        <div class="mt-3 border-top pt-2"><div class="row small"><div class="col-6"><b>單號：</b>${item.訂單編號}</div><div class="col-6 text-end"><b>料號：</b>${item.客訴產品}</div></div>
-        <p class="mt-2 mb-1"><b>平台：</b>${item.客訴平台} / <b>購買：</b>${item.購買平台}</p><p class="mb-1"><b>內容：</b>${item.客訴內容}</p>
-        <div class="progress-box"><b>📝 後續進度：</b><br>${item.後續進度記錄 || '尚無進度'}</div><div class="mt-2">${imgHtml}</div>
-        <div class="mt-3 p-2 bg-white border rounded"><div class="input-group"><textarea class="form-control form-control-sm" id="up_${item.編碼}" placeholder="補充後續處理進度..."></textarea><button class="btn btn-sm btn-primary" onclick="addProgress('${item.編碼}', this)">更新</button></div></div></div></details></div>`;
-    });
-    listDiv.innerHTML = html;
-  })
-  .withFailureHandler(err => {
-    listDiv.innerHTML = '<div class="alert alert-danger">讀取失敗：' + err + '</div>';
-  })
-  .getBrandRecords(brand);
+        let html = '';
+        data.forEach(item => {
+          const imgList = item.圖片網址清單 ? item.圖片網址清單.split(", ") : [];
+          let imgHtml = '';
+          imgList.forEach(url => {
+            const fileId = url.match(/[-\w]{25,}/);
+            if (fileId) {
+              const thumbUrl = `https://drive.google.com/thumbnail?id=${fileId[0]}&sz=w200`;
+              // [修正6] 對 url 做跳脫避免 XSS
+              const safeUrl = escHtml(url);
+              imgHtml += `<a href="${safeUrl}" target="_blank"><img src="${thumbUrl}" class="img-thumb" onerror="this.src='https://placehold.co/80x80?text=Private+File'"></a>`;
+            }
+          });
+          // [修正6] 所有使用者輸入欄位皆做 escHtml 處理
+          html += `<div class="card card-body shadow-sm"><details><summary class="h6 m-0">
+            <span class="badge bg-primary status-badge">${escHtml(item.處理狀態)}</span>
+            [${escHtml(item.客訴日期)}] <b>${escHtml(item.編碼)}</b> - ${escHtml(item.客人名稱)}</summary>
+            <div class="mt-3 border-top pt-2">
+              <div class="row small">
+                <div class="col-6"><b>單號：</b>${escHtml(item.訂單編號)}</div>
+                <div class="col-6 text-end"><b>料號：</b>${escHtml(item.客訴產品)}</div>
+              </div>
+              <p class="mt-2 mb-1"><b>平台：</b>${escHtml(item.客訴平台)} / <b>購買：</b>${escHtml(item.購買平台)}</p>
+              <p class="mb-1"><b>內容：</b>${escHtml(item.客訴內容)}</p>
+              <div class="progress-box"><b>📝 後續進度：</b><br>${escHtml(item.後續進度記錄 || '尚無進度')}</div>
+              <div class="mt-2">${imgHtml}</div>
+              <div class="mt-3 p-2 bg-white border rounded">
+                <div class="input-group">
+                  <textarea class="form-control form-control-sm" id="up_${escHtml(item.編碼)}" placeholder="補充後續處理進度..."></textarea>
+                  <button class="btn btn-sm btn-primary" onclick="addProgress('${escHtml(item.編碼)}', this)">更新</button>
+                </div>
+              </div>
+            </div></details></div>`;
+        });
+        listDiv.innerHTML = html;
+      })
+      .withFailureHandler(err => {
+        listDiv.innerHTML = '<div class="alert alert-danger">讀取失敗：' + escHtml(String(err)) + '</div>';
+      })
+      .getBrandRecords(brand);
   }
 
   function addProgress(id, btn) {
-  const input = document.getElementById('up_' + id); // 抓取輸入框物件
-  const text = input.value.trim();
-  if (!text) return;
-  btn.disabled = true;
-  btn.innerText = "稍候..";
-  google.script.run
-    .withSuccessHandler(() => { 
-      alert("更新成功！"); 
-      input.value = ""; // 更新成功後清空輸入框
-      loadRecords(); 
-    })
-    .withFailureHandler(err => { alert("更新失敗：" + err); btn.disabled = false; })
-    .updateComplaintProgress(id, text);
-}
+    const input = document.getElementById('up_' + id);
+    const text = input.value.trim();
+    if (!text) return;
+    btn.disabled = true;
+    const originalText = btn.innerText;
+    btn.innerText = "稍候..";
+    google.script.run
+      .withSuccessHandler(() => {
+        alert("更新成功！");
+        input.value = "";
+        loadRecords();
+      })
+      .withFailureHandler(err => {
+        alert("更新失敗：" + err);
+        // [修正小建議] 失敗時同時還原按鈕文字
+        btn.disabled = false;
+        btn.innerText = originalText;
+      })
+      .updateComplaintProgress(id, text);
+  }
 
   function loadSummary() {
-  const brand = "<?= brand ?>";
-  const dayDiv = document.getElementById('daySummary');
-  const monthDiv = document.getElementById('monthSummary');
-  dayDiv.innerHTML = '<div class="spinner-border spinner-border-sm"></div> 載入中..';
-  monthDiv.innerHTML = '<div class="spinner-border spinner-border-sm"></div> 載入中..';
-  
-  google.script.run
-    .withSuccessHandler(res => {
-      dayDiv.innerHTML = res.day.length ? '<ul class="list-group list-group-flush">' + res.day.map(s => `<li class="list-group-item d-flex justify-content-between align-items-center">${s.cat}<span class="badge bg-primary rounded-pill">${s.count}</span></li>`).join('') + '</ul>' : "今日尚無資料";
-      monthDiv.innerHTML = res.month.length ? '<ul class="list-group list-group-flush">' + res.month.map(s => `<li class="list-group-item d-flex justify-content-between align-items-center">${s.cat}<span class="badge bg-info text-dark rounded-pill">${s.count}</span></li>`).join('') + '</ul>' : "本月尚無資料";
-      document.getElementById('unresolvedCount').innerText = res.unresolved;
-    })
-    .withFailureHandler(err => { 
-      dayDiv.innerHTML = "載入失敗"; 
-      monthDiv.innerHTML = "載入失敗"; 
-    })
-    .getDashboardData(brand);
-}
+    const brand = "<?= brand ?>";
+    const dayDiv = document.getElementById('daySummary');
+    const monthDiv = document.getElementById('monthSummary');
+    dayDiv.innerHTML = '<div class="spinner-border spinner-border-sm"></div> 載入中..';
+    monthDiv.innerHTML = '<div class="spinner-border spinner-border-sm"></div> 載入中..';
+
+    google.script.run
+      .withSuccessHandler(res => {
+        dayDiv.innerHTML = res.day.length
+          ? '<ul class="list-group list-group-flush">' + res.day.map(s => `<li class="list-group-item d-flex justify-content-between align-items-center">${escHtml(s.cat)}<span class="badge bg-primary rounded-pill">${s.count}</span></li>`).join('') + '</ul>'
+          : "今日尚無資料";
+        monthDiv.innerHTML = res.month.length
+          ? '<ul class="list-group list-group-flush">' + res.month.map(s => `<li class="list-group-item d-flex justify-content-between align-items-center">${escHtml(s.cat)}<span class="badge bg-info text-dark rounded-pill">${s.count}</span></li>`).join('') + '</ul>'
+          : "本月尚無資料";
+        document.getElementById('unresolvedCount').innerText = res.unresolved;
+      })
+      .withFailureHandler(err => {
+        dayDiv.innerHTML = "載入失敗";
+        monthDiv.innerHTML = "載入失敗";
+      })
+      .getDashboardData(brand);
+  }
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
