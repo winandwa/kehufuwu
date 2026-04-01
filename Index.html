@@ -6,13 +6,18 @@
     body { padding: 20px; background-color: #f8f9fa; font-family: "Microsoft JhengHei", sans-serif; }
     .card { margin-bottom: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
     .status-badge { float: right; }
-    .img-thumb { width: 80px; height: 80px; object-fit: cover; margin: 5px; border: 2px solid #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); cursor: pointer; }
+    .img-thumb { width: 80px; height: 80px; object-fit: cover; margin: 5px; border: 2px solid #fff; border-radius: 8px; cursor: pointer; }
     .progress-box { background: #f0f2f5; padding: 10px; border-radius: 8px; font-size: 0.9rem; white-space: pre-line; border-left: 4px solid #0d6efd; margin-top: 10px; }
-    #loadingOverlay { display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.85); z-index: 9999; text-align: center; padding-top: 20%; }
+    #loadingOverlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.85); z-index:9999; text-align:center; padding-top:20%; }
     .closed-card { border-left: 4px solid #198754 !important; }
-    .closed-banner { background: #d1e7dd; color: #0f5132; padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; margin-top: 10px; }
-    .product-tag { font-size: 0.9rem; padding: 4px 8px; }
-    .copy-box { white-space: pre-line; font-size: 0.9rem; text-align: left; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 12px; margin-top: 10px; }
+    .closed-banner { background:#d1e7dd; color:#0f5132; padding:6px 12px; border-radius:6px; font-size:0.85rem; font-weight:bold; margin-top:10px; }
+    .copy-box { white-space:pre-line; font-size:0.9rem; text-align:left; background:#f8f9fa; border:1px solid #dee2e6; border-radius:8px; padding:12px; margin-top:10px; }
+    .section-card { background:#fff; border:1px solid #dee2e6; border-radius:10px; padding:16px; margin-bottom:12px; }
+    .case-type-btn { border-radius: 20px; margin: 3px; }
+    details > summary { list-style: none; }
+    details > summary::-webkit-details-marker { display: none; }
+    details > summary::before { content: "▶ "; font-size: 0.8em; }
+    details[open] > summary::before { content: "▼ "; }
   </style>
 </head>
 <body onload="init()">
@@ -28,7 +33,6 @@
       <div class="modal-content">
         <div class="modal-header"><h5 class="modal-title">🔒 汶和身份驗證</h5></div>
         <div class="modal-body">
-          <p class="text-muted small mb-2">請輸入汶和專屬密碼</p>
           <input type="password" id="whPassword" class="form-control" placeholder="請輸入密碼">
           <div id="whError" class="text-danger small mt-1" style="display:none;">密碼錯誤</div>
         </div>
@@ -44,9 +48,7 @@
   <div class="modal fade" id="statusModal" tabindex="-1">
     <div class="modal-dialog modal-sm">
       <div class="modal-content">
-        <div class="modal-header" id="statusModalHeader">
-          <h5 class="modal-title" id="statusModalTitle"></h5>
-        </div>
+        <div class="modal-header" id="statusModalHeader"><h5 class="modal-title" id="statusModalTitle"></h5></div>
         <div class="modal-body" id="statusModalBody"></div>
         <div class="modal-footer">
           <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button>
@@ -57,10 +59,25 @@
   </div>
 
   <div class="container">
-    <h3 class="mb-4 text-primary fw-bold">客服記錄系統 - <?= brand ?></h3>
+    <div class="d-flex align-items-center justify-content-between mb-4">
+      <h3 class="text-primary fw-bold mb-0">客服記錄系統 - <?= brand ?></h3>
+      <!-- ALL 頁面才顯示品牌篩選 -->
+      <?if (brand === 'ALL') {?>
+      <div class="d-flex align-items-center gap-2">
+        <label class="small text-muted mb-0">品牌篩選：</label>
+        <select id="brandFilter" class="form-select form-select-sm" style="width:120px;" onchange="onBrandFilterChange(this.value)">
+          <option value="ALL">全部品牌</option>
+          <option value="TLV">TLV</option>
+          <option value="VW">VW</option>
+          <option value="QM">QM</option>
+          <option value="MH">MH</option>
+        </select>
+      </div>
+      <?}?>
+    </div>
 
     <ul class="nav nav-tabs mb-4" id="myTab">
-      <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#record">新客訴記錄</button></li>
+      <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#record">新記錄</button></li>
       <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#query" onclick="loadRecords()">歷史查詢</button></li>
       <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#summary" onclick="loadSummary()">統計總結</button></li>
     </ul>
@@ -70,16 +87,29 @@
       <!-- 統計總結 -->
       <div class="tab-pane fade" id="summary">
         <div class="row mt-3">
-          <div class="col-md-6 mb-3"><div class="card card-body border-primary shadow-sm"><h5>📅 當日客訴統計</h5><div id="daySummary">載入中...</div></div></div>
-          <div class="col-md-6 mb-3"><div class="card card-body border-info shadow-sm"><h5>📅 本月累積統計</h5><div id="monthSummary">載入中...</div></div></div>
-          <div class="col-12 mb-3"><div class="card card-body bg-light border-danger"><h5 class="text-danger fw-bold m-0">🚨 未解決案件：<span id="unresolvedCount">0</span> 筆</h5></div></div>
+          <div class="col-12 mb-3">
+            <div class="card card-body bg-light border-danger" style="cursor:pointer" onclick="goToUnresolved()">
+              <h5 class="text-danger fw-bold m-0">🚨 未解決案件：<span id="unresolvedCount">0</span> 筆 <small class="text-muted fw-normal fs-6">（點擊查看清單）</small></h5>
+            </div>
+          </div>
+          <div class="col-12 mb-3">
+            <div class="card card-body shadow-sm">
+              <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+                <h5 class="mb-0">📅 每日統計</h5>
+                <div class="btn-group btn-group-sm ms-2">
+                  <button type="button" class="btn btn-primary" id="rangeBtn7" onclick="setSummaryRange(7)">近7天</button>
+                  <button type="button" class="btn btn-outline-primary" id="rangeBtn30" onclick="setSummaryRange(30)">近30天</button>
+                  <button type="button" class="btn btn-outline-primary" id="rangeBtnMonth" onclick="setSummaryRange('month')">本月</button>
+                </div>
+              </div>
+              <div id="dailyStats">載入中...</div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- 新客訴記錄 -->
+      <!-- 新記錄 -->
       <div class="tab-pane fade show active" id="record">
-
-        <!-- 成功畫面 -->
         <div id="successZone" style="display:none;">
           <div class="alert alert-success shadow p-4">
             <div class="text-center mb-3">
@@ -94,105 +124,248 @@
           </div>
         </div>
 
-        <!-- 表單 -->
-        <form id="complaintForm">
-          <input type="hidden" name="brand" value="<?= brand ?>">
-          <div class="row">
-
-            <!-- 基本資料 -->
-            <div class="col-md-4 mb-3">
-              <label class="fw-bold">客訴日期</label>
-              <input type="date" id="dateInput" name="date" class="form-control" required>
-            </div>
-            <div class="col-md-4 mb-3">
-              <label class="fw-bold">客人名稱</label>
-              <input type="text" name="customerName" class="form-control" required>
-            </div>
-            <div class="col-md-4 mb-3">
-              <label class="fw-bold">訂單編號</label>
-              <input type="text" name="orderNo" class="form-control">
-            </div>
-
-            <!-- 平台 -->
-            <div class="col-md-6 mb-3">
-              <label class="fw-bold">客訴平台</label>
-              <input type="text" name="platform" class="form-control" list="platformOptions" placeholder="請選擇或直接輸入">
-              <datalist id="platformOptions"><option value="91"><option value="蝦皮"><option value="LINE@"><option value="電話"><option value="FB"></datalist>
-            </div>
-            <div class="col-md-6 mb-3">
-              <label class="fw-bold">購買平台</label>
-              <input type="text" name="buyPlatform" class="form-control" list="buyOptions" placeholder="請選擇或直接輸入">
-              <datalist id="buyOptions"><option value="91"><option value="蝦皮"><option value="MOMO"><option value="門市"></datalist>
-            </div>
-
-            <!-- 料號（可搜尋+多選） -->
-            <div class="col-12 mb-3">
-              <label class="fw-bold">客訴產品（料號）<span class="text-danger">*</span></label>
-              <div class="d-flex gap-2 mb-1">
-                <input type="text" id="productSearch" class="form-control" placeholder="輸入或搜尋料號，按 Enter 或點＋加入"
-                  autocomplete="off" list="productDatalist"
-                  onkeydown="if(event.key==='Enter'){event.preventDefault();addProductTag();}"
-                  style="max-width:320px;">
-                <datalist id="productDatalist"></datalist>
-                <button type="button" class="btn btn-outline-primary btn-sm px-3" onclick="addProductTag()">＋ 加入</button>
+        <div id="formZone">
+          <!-- 共用欄位 -->
+          <div class="section-card">
+            <div class="row">
+              <div class="col-md-4 mb-3">
+                <label class="fw-bold">建立日期</label>
+                <input type="date" id="dateInput" class="form-control" required>
               </div>
-              <div id="productTags" class="d-flex flex-wrap gap-1 mt-1 mb-1"></div>
-              <input type="hidden" id="productNoHidden" name="productNo">
-              <div class="form-text text-muted">可加入多個料號，點 ✕ 移除</div>
+              <div class="col-md-4 mb-3">
+                <label class="fw-bold">客人名稱 <span class="text-danger">*</span></label>
+                <input type="text" id="customerName" class="form-control">
+              </div>
+              <div class="col-md-4 mb-3">
+                <label class="fw-bold">訂單編號</label>
+                <input type="text" id="orderNo" class="form-control">
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="fw-bold">客訴平台</label>
+                <select id="platformSelect" class="form-select" onchange="onSelectOther(this,'platformOther')">
+                  <option value="">-- 請選擇 --</option>
+                </select>
+                <input type="text" id="platformOther" class="form-control mt-1" placeholder="請輸入平台名稱" style="display:none;">
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="fw-bold">購買平台</label>
+                <select id="buyPlatformSelect" class="form-select" onchange="onSelectOther(this,'buyPlatformOther')">
+                  <option value="">-- 請選擇 --</option>
+                </select>
+                <input type="text" id="buyPlatformOther" class="form-control mt-1" placeholder="請輸入平台名稱" style="display:none;">
+              </div>
             </div>
+          </div>
 
-            <!-- 數量 -->
-            <div class="col-md-3 mb-3">
-              <label class="fw-bold">數量</label>
-              <input type="text" name="quantity" class="form-control" placeholder="例：2 或 4+1">
+          <!-- 處理類型 -->
+          <div class="section-card">
+            <label class="fw-bold mb-2 d-block">處理類型 <span class="text-danger">*</span></label>
+            <div>
+              <button type="button" class="btn btn-outline-primary case-type-btn" onclick="selectCaseType('訂單處理')">⭐️ 訂單處理</button>
+              <button type="button" class="btn btn-outline-success case-type-btn" onclick="selectCaseType('退換貨處理')">🔄 退換貨處理</button>
+              <button type="button" class="btn btn-outline-danger case-type-btn" onclick="selectCaseType('客訴處理')">📢 客訴處理</button>
+              <button type="button" class="btn btn-outline-warning case-type-btn" onclick="selectCaseType('專線處理')">📞 專線處理</button>
+              <button type="button" class="btn btn-outline-secondary case-type-btn" onclick="selectCaseType('其他事項')">📝 其他事項</button>
             </div>
+            <input type="hidden" id="caseType">
+          </div>
 
-            <!-- 批號（只有延伸供應商才顯示） -->
-            <div class="col-md-4 mb-3" id="batchNoBlock" style="display:none;">
-              <label class="fw-bold">產品批號 <span class="text-danger">*</span></label>
-              <input type="text" name="batchNo" id="batchNoInput" class="form-control" placeholder="必填">
-            </div>
-
-            <!-- 客訴分類 -->
-            <div class="col-md-5 mb-3">
-              <label class="fw-bold">客訴分類</label>
-              <select name="category" class="form-select">
-                <option>使用感</option><option>包材NG</option><option>銷售理解落差</option><option>出貨問題</option><option>其他</option>
+          <!-- 訂單處理 -->
+          <div id="block_訂單處理" class="section-card" style="display:none;">
+            <h6 class="fw-bold text-primary mb-3">⭐️ 訂單處理</h6>
+            <div class="mb-3">
+              <label class="fw-bold">訂單處理類型 <span class="text-danger">*</span></label>
+              <select id="orderSubType" class="form-select" onchange="onOrderSubType(this.value)">
+                <option value="">-- 請選擇 --</option>
+                <option>取消訂單</option><option>暫停出貨</option><option>訂單備注出貨時間</option>
+                <option>隨訂單附贈</option><option>訂單修改色號</option><option>閉店關轉</option><option>其他原因</option>
               </select>
             </div>
-
+            <div id="cancelReasonBlock" style="display:none;" class="mb-3">
+              <label class="fw-bold">取消原因</label>
+              <select id="cancelReason" class="form-select">
+                <option>買貴</option><option>衝動購物</option><option>重複購買</option>
+                <option>不需要了</option><option>變更付款方式</option><option>變更取貨方式</option>
+              </select>
+            </div>
+            <div id="orderNoteBlock" style="display:none;" class="mb-3">
+              <label class="fw-bold" id="orderNoteLabel">備註</label>
+              <textarea id="orderNote" class="form-control" rows="2"></textarea>
+            </div>
           </div>
 
-          <!-- 解決方向 -->
-          <div class="mb-3">
-            <label class="fw-bold">解決方向</label>
-            <select name="solution" id="solutionSelect" class="form-select" onchange="onSolutionChange(this.value)">
-              <option>補償/退換貨</option>
-              <option>請汶和解答</option>
-              <option>請汶和延伸供應商</option>
-            </select>
+          <!-- 退換貨處理 -->
+          <div id="block_退換貨處理" class="section-card" style="display:none;">
+            <h6 class="fw-bold text-success mb-3">🔄 退換貨處理</h6>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="fw-bold">客訴產品（料號）</label>
+                <input type="text" id="productNo_return" class="form-control" list="productDatalist" placeholder="輸入或搜尋料號">
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="fw-bold">退換貨原因</label>
+                <select id="returnReason" class="form-select">
+                  <option>肌膚不適</option>
+                  <option>使用後不如預期</option>
+                  <option>商品不方便使用（瓶器有瑕疵）</option>
+                  <option>買貴</option>
+                  <option>衝動購物不需要了</option>
+                  <option>其他</option>
+                </select>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="fw-bold">退換貨原因補充</label>
+                <input type="text" id="returnReasonOther" class="form-control" placeholder="自行填寫">
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="fw-bold d-block mb-2">處理方式</label>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="chkReturn" onchange="onReturnTypeChange()">
+                <label class="form-check-label fw-bold text-danger" for="chkReturn">退貨</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="chkExchange" onchange="onReturnTypeChange()">
+                <label class="form-check-label fw-bold text-primary" for="chkExchange">換貨（安排來回件）</label>
+              </div>
+            </div>
+            <div id="deliveryInfoBlock" style="display:none;">
+              <div class="row">
+                <div class="col-md-4 mb-3">
+                  <label class="fw-bold">收件人</label>
+                  <input type="text" id="recipientName" class="form-control">
+                </div>
+                <div class="col-md-4 mb-3">
+                  <label class="fw-bold">收件地址</label>
+                  <input type="text" id="recipientAddress" class="form-control">
+                </div>
+                <div class="col-md-4 mb-3">
+                  <label class="fw-bold">方便收件時間</label>
+                  <input type="text" id="recipientTime" class="form-control" placeholder="例：平日下午2-5點">
+                </div>
+                <div id="exchangeItemBlock" class="col-md-6 mb-3" style="display:none;">
+                  <label class="fw-bold">換貨品項</label>
+                  <input type="text" id="exchangeItem" class="form-control">
+                </div>
+              </div>
+              <div class="mb-3">
+                <label class="fw-bold">上傳包裹照片</label>
+                <input type="file" id="packageFileInput" class="form-control" multiple accept="image/*" onchange="checkFiles(this)">
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="fw-bold">備充說明</label>
+              <textarea id="returnComment" class="form-control" rows="2"></textarea>
+            </div>
           </div>
 
-          <!-- 退換貨品項說明（只有補償/退換貨才顯示） -->
-          <div class="mb-3" id="lineItemBlock">
-            <label class="fw-bold">退換貨品項說明 <span class="text-muted small fw-normal">（用於 LINE 通知，可填組合格式如 TQ06-90*4+TQ06-30）</span></label>
-            <input type="text" name="lineItem" id="lineItemInput" class="form-control" placeholder="例：TQ06-90*4+TQ06-30">
+          <!-- 客訴處理 -->
+          <div id="block_客訴處理" class="section-card" style="display:none;">
+            <h6 class="fw-bold text-danger mb-3">📢 客訴處理</h6>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="fw-bold">客訴產品（料號）<span class="text-danger">*</span></label>
+                <input type="text" id="productNo_complaint" class="form-control" list="productDatalist" placeholder="輸入或搜尋料號">
+                <datalist id="productDatalist"></datalist>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="fw-bold">客訴分類</label>
+                <select id="categorySelect" class="form-select">
+                  <option value="">-- 請選擇 --</option>
+                </select>
+              </div>
+            </div>
+            <!-- 解決方向 + 動態子欄位 -->
+            <div class="mb-3">
+              <label class="fw-bold">解決方向</label>
+              <select id="solutionSelect" class="form-select" onchange="onSolutionChange(this.value)">
+                <option value="">-- 請選擇 --</option>
+              </select>
+            </div>
+            <!-- 動態子欄位區 -->
+            <div id="solutionSubFields"></div>
+
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="fw-bold">數量</label>
+                <input type="text" id="quantity" class="form-control" placeholder="例：2 或 4+1">
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="fw-bold">退換貨品項說明 <span class="text-muted small fw-normal">（可填組合格式如 TQ06-90*4+TQ06-30）</span></label>
+              <input type="text" id="lineItem" class="form-control">
+            </div>
+            <div class="mb-3">
+              <label class="fw-bold">客訴內容 <span class="text-danger">*</span></label>
+              <textarea id="content_complaint" class="form-control" rows="3"></textarea>
+            </div>
+            <div class="mb-3">
+              <label class="fw-bold">第一階段補充說明</label>
+              <textarea id="comment_complaint" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="p-3 rounded mb-3" style="background:#fff8e1;border:1px solid #ffc107;">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="needDispatch" onchange="onDispatchChange(this.checked)">
+                <label class="form-check-label fw-bold" for="needDispatch">🔔 需要汶和商開部門協助</label>
+              </div>
+              <div id="dispatchDetail" style="display:none;" class="mt-2">
+                <label class="fw-bold small">產品批號 <span class="text-danger">*</span></label>
+                <input type="text" id="batchNoInput" class="form-control form-control-sm">
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="fw-bold">附件圖片（上限10張）</label>
+              <input type="file" id="fileInput" class="form-control" multiple accept="image/*" onchange="checkFiles(this)">
+            </div>
+            <div class="mb-3">
+              <label class="fw-bold">影片連結 <span class="text-muted small fw-normal">（上傳至 Google Drive 後貼連結）</span></label>
+              <div id="videoLinks">
+                <div class="input-group mb-1">
+                  <input type="text" class="form-control video-link" placeholder="https://drive.google.com/...">
+                  <button type="button" class="btn btn-outline-secondary" onclick="addVideoLink()">＋</button>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div class="mb-3"><label class="fw-bold">內容詳述</label><textarea name="content" class="form-control" rows="3" required></textarea></div>
-          <div class="mb-3"><label class="fw-bold">第一階段補充</label><textarea name="comment" class="form-control" rows="2"></textarea></div>
-
-          <div class="mb-3">
-            <label class="fw-bold">附件圖片（上限10張，不支援影片）</label>
-            <input type="file" id="fileInput" class="form-control" multiple accept="image/*" onchange="checkFiles(this)">
-            <div class="form-text text-muted">每張圖片建議 10MB 以內</div>
+          <!-- 專線處理 -->
+          <div id="block_專線處理" class="section-card" style="display:none;">
+            <h6 class="fw-bold text-warning mb-3">📞 專線處理</h6>
+            <div class="mb-3">
+              <label class="fw-bold">處理內容</label>
+              <textarea id="content_hotline" class="form-control" rows="4"></textarea>
+            </div>
           </div>
-          <button type="submit" class="btn btn-primary btn-lg w-100 shadow">確認上傳並生成編碼</button>
-        </form>
+
+          <!-- 其他事項 -->
+          <div id="block_其他事項" class="section-card" style="display:none;">
+            <h6 class="fw-bold text-secondary mb-3">📝 其他事項</h6>
+            <div class="mb-3">
+              <label class="fw-bold">處理內容</label>
+              <textarea id="content_other" class="form-control" rows="4"></textarea>
+            </div>
+          </div>
+
+          <button type="button" id="submitBtn" class="btn btn-primary btn-lg w-100 shadow" onclick="submitForm()" disabled>
+            請先選擇處理類型
+          </button>
+        </div>
       </div>
 
       <!-- 歷史查詢 -->
       <div class="tab-pane fade" id="query">
+        <div id="queryFilter" class="mb-3" style="display:none;">
+          <div class="alert alert-warning py-2 d-flex justify-content-between align-items-center">
+            <span>🔍 目前只顯示「未解決」案件</span>
+            <button class="btn btn-sm btn-outline-dark" onclick="clearFilter()">顯示全部</button>
+          </div>
+        </div>
+        <div class="input-group mb-3">
+          <span class="input-group-text">🔍</span>
+          <input type="text" id="searchInput" class="form-control" placeholder="搜尋訂單編號、料號、客人名稱、案件編碼..." oninput="filterRecords(this.value)">
+          <button class="btn btn-outline-secondary" onclick="document.getElementById('searchInput').value='';filterRecords('');">✕</button>
+        </div>
+        <div id="searchHint" class="text-muted small mb-2" style="display:none;"></div>
         <div id="recordList" class="mt-3">載入中...</div>
       </div>
     </div>
@@ -201,375 +374,518 @@
   <script>
   var WH_PASSWORD = "93704671";
   var whUnlocked = false;
-  var pendingProgressId = null;
-  var pendingProgressBtn = null;
-  var pendingStatusId = null;
-  var pendingStatusAction = null;
-  var _allProducts = [];
-  var _selectedProducts = [];
-  var _lineText = "";
+  var pendingProgressId = null, pendingProgressBtn = null;
+  var pendingStatusId = null, pendingStatusAction = null;
+  var _allProducts = [], _lineText = "", _filterUnresolved = false;
+  var _currentCaseType = "";
+  var _menuOptions = { categories:[], solutions:[], solutionFields:{}, platforms:[], buyPlatforms:[] };
+  var _summaryRange = 7;
+  var _allRecords = [];
+  var _currentBrand = "<?= brand ?>";
 
-  function escText(s) {
-    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-  }
+  function escText(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
-  // ===== 初始化 =====
   function init() {
     setTWDate();
     loadProductList();
-    onSolutionChange('補償/退換貨'); // 預設顯示退換貨品項欄
+    loadMenuOptions();
   }
 
   function setTWDate() {
     var now = new Date();
-    var utc = now.getTime() + now.getTimezoneOffset() * 60000;
-    var tw = new Date(utc + 8 * 60 * 60000);
-    var y = tw.getFullYear();
-    var m = String(tw.getMonth()+1).padStart(2,'0');
-    var d = String(tw.getDate()).padStart(2,'0');
+    var utc = now.getTime() + now.getTimezoneOffset()*60000;
+    var tw = new Date(utc + 8*60*60000);
+    var y=tw.getFullYear(), m=String(tw.getMonth()+1).padStart(2,'0'), d=String(tw.getDate()).padStart(2,'0');
     document.getElementById('dateInput').value = y+'-'+m+'-'+d;
   }
 
-  // ===== 料號多選 =====
-  function loadProductList() {
-    var brand = "<?= brand ?>";
+  // ===== 品牌篩選（ALL頁面）=====
+  function onBrandFilterChange(brand) {
+    _currentBrand = brand;
+    // 重新載入料號
     google.script.run
       .withSuccessHandler(function(products) {
         _allProducts = products || [];
-        rebuildDatalist(_allProducts);
+        var dl = document.getElementById('productDatalist');
+        if (dl) { dl.innerHTML=''; _allProducts.forEach(function(p){var o=document.createElement('option');o.value=p;dl.appendChild(o);}); }
       })
-      .withFailureHandler(function() {})
+      .withFailureHandler(function(){})
       .getProductList(brand);
+    // 重新載入記錄（如果在歷史查詢）
+    if (document.getElementById('recordList')) loadRecords();
+    // 重新載入統計（如果在統計）
+    if (document.getElementById('dailyStats')) loadSummary();
   }
 
-  function rebuildDatalist(list) {
-    var dl = document.getElementById('productDatalist');
-    dl.innerHTML = '';
-    list.forEach(function(p) {
-      var opt = document.createElement('option');
-      opt.value = p;
-      dl.appendChild(opt);
-    });
+  // ===== 料號 =====
+  function loadProductList() {
+    google.script.run
+      .withSuccessHandler(function(products) {
+        _allProducts = products || [];
+        var dl = document.getElementById('productDatalist');
+        if (!dl) return;
+        dl.innerHTML='';
+        _allProducts.forEach(function(p){var o=document.createElement('option');o.value=p;dl.appendChild(o);});
+      })
+      .withFailureHandler(function(){})
+      .getProductList(_currentBrand);
   }
 
-  function addProductTag() {
-    var input = document.getElementById('productSearch');
-    var val = input.value.trim();
-    if (!val) return;
-    if (_selectedProducts.indexOf(val) < 0) {
-      _selectedProducts.push(val);
-      renderProductTags();
-      updateProductHidden();
-    }
-    input.value = '';
-    rebuildDatalist(_allProducts); // 還原完整清單
+  // ===== 選單 =====
+  function loadMenuOptions() {
+    google.script.run
+      .withSuccessHandler(function(opts) {
+        _menuOptions = opts;
+        fillSelect('platformSelect', opts.platforms, true);
+        fillSelect('buyPlatformSelect', opts.buyPlatforms, true);
+        fillSelect('categorySelect', opts.categories, false);
+        fillSelect('solutionSelect', opts.solutions, false);
+      })
+      .withFailureHandler(function(){})
+      .getMenuOptions();
   }
 
-  function removeProductTag(idx) {
-    _selectedProducts.splice(idx, 1);
-    renderProductTags();
-    updateProductHidden();
+  function fillSelect(id, items, allowOther) {
+    var sel = document.getElementById(id);
+    if (!sel) return;
+    sel.innerHTML = '<option value="">-- 請選擇 --</option>';
+    (items||[]).forEach(function(item){var o=document.createElement('option');o.value=item;o.text=item;sel.appendChild(o);});
+    if (allowOther){var o=document.createElement('option');o.value='__other__';o.text='其他（手動輸入）';sel.appendChild(o);}
   }
 
-  function renderProductTags() {
-    var container = document.getElementById('productTags');
-    container.innerHTML = '';
-    _selectedProducts.forEach(function(p, i) {
-      var tag = document.createElement('span');
-      tag.className = 'badge bg-primary product-tag';
-      tag.innerHTML = escText(p) + ' <span style="cursor:pointer;margin-left:4px" onclick="removeProductTag(' + i + ')">✕</span>';
-      container.appendChild(tag);
-    });
+  function onSelectOther(sel, inputId) {
+    var input = document.getElementById(inputId);
+    if (!input) return;
+    input.style.display = sel.value==='__other__'?'':'none';
+    if (sel.value==='__other__') input.focus(); else input.value='';
   }
 
-  function updateProductHidden() {
-    document.getElementById('productNoHidden').value = _selectedProducts.join(', ');
-  }
-
-  // ===== 解決方向切換 =====
+  // ===== 解決方向動態子欄位 =====
   function onSolutionChange(val) {
-    // 批號：只有延伸供應商才顯示
-    var batchBlock = document.getElementById('batchNoBlock');
-    var batchInput = document.getElementById('batchNoInput');
-    if (val === '請汶和延伸供應商') {
-      batchBlock.style.display = '';
-      batchInput.required = true;
-    } else {
-      batchBlock.style.display = 'none';
-      batchInput.required = false;
-      batchInput.value = '';
-    }
-    // 退換貨品項說明：補償/退換貨時顯示
-    var lineItemBlock = document.getElementById('lineItemBlock');
-    if (val === '補償/退換貨') {
-      lineItemBlock.style.display = '';
-    } else {
-      lineItemBlock.style.display = 'none';
-      document.getElementById('lineItemInput').value = '';
-    }
+    var container = document.getElementById('solutionSubFields');
+    container.innerHTML = '';
+    if (!val || !_menuOptions.solutionFields) return;
+    var fields = _menuOptions.solutionFields[val] || [];
+    if (fields.length === 0) return;
+
+    // 欄位名稱對應到 payload key 和 input id
+    var fieldMap = {
+      '收件人': 'sol_recipientName',
+      '收件地址': 'sol_recipientAddress',
+      '方便收件時間': 'sol_recipientTime',
+      '換貨品項': 'sol_exchangeItem',
+      '補寄品項': 'sol_resendItem',
+      '數量': 'sol_quantity',
+      '補償說明': 'sol_compensationNote',
+      '備註': 'sol_noteContent',
+      '折扣說明': 'sol_discountNote'
+    };
+
+    var html = '<div class="p-3 bg-light rounded mb-3"><div class="row">';
+    fields.forEach(function(fieldName) {
+      var inputId = fieldMap[fieldName] || ('sol_'+fieldName);
+      html += '<div class="col-md-6 mb-2">';
+      html += '<label class="fw-bold small">'+escText(fieldName)+'</label>';
+      html += '<input type="text" id="'+inputId+'" class="form-control form-control-sm" placeholder="'+escText(fieldName)+'">';
+      html += '</div>';
+    });
+    html += '</div></div>';
+    container.innerHTML = html;
+  }
+
+  // ===== 處理類型切換 =====
+  var caseTypes = ['訂單處理','退換貨處理','客訴處理','專線處理','其他事項'];
+  function selectCaseType(type) {
+    _currentCaseType = type;
+    document.getElementById('caseType').value = type;
+    caseTypes.forEach(function(t){ document.getElementById('block_'+t).style.display = t===type?'':'none'; });
+    document.querySelectorAll('.case-type-btn').forEach(function(btn){
+      btn.classList.remove('active');
+      if (btn.textContent.indexOf(type)>=0) btn.classList.add('active');
+    });
+    var submitBtn = document.getElementById('submitBtn');
+    submitBtn.disabled = false;
+    submitBtn.textContent = '確認送出（'+type+'）';
+  }
+
+  function onOrderSubType(val) {
+    document.getElementById('cancelReasonBlock').style.display = val==='取消訂單'?'':'none';
+    var noteBlock = document.getElementById('orderNoteBlock');
+    var noteLabel = document.getElementById('orderNoteLabel');
+    var labels = {'暫停出貨':'待確認可出貨的時間','訂單備注出貨時間':'備註可出貨的時間','隨訂單附贈':'隨貨附贈的商品代號','訂單修改色號':'原色號 → 改為色號','閉店關轉':'聯繫客人的狀況','其他原因':'備註說明','取消訂單':'備註說明'};
+    if (val) { noteBlock.style.display=''; noteLabel.textContent=labels[val]||'備註'; }
+    else noteBlock.style.display='none';
+  }
+
+  function onReturnTypeChange() {
+    var chkReturn = document.getElementById('chkReturn').checked;
+    var chkExchange = document.getElementById('chkExchange').checked;
+    document.getElementById('deliveryInfoBlock').style.display = (chkReturn||chkExchange)?'':'none';
+    document.getElementById('exchangeItemBlock').style.display = chkExchange?'':'none';
+  }
+
+  function onDispatchChange(checked) {
+    document.getElementById('dispatchDetail').style.display = checked?'':'none';
+    document.getElementById('batchNoInput').required = checked;
+    if (!checked) document.getElementById('batchNoInput').value='';
+  }
+
+  function addVideoLink() {
+    var container = document.getElementById('videoLinks');
+    var div = document.createElement('div');
+    div.className='input-group mb-1';
+    div.innerHTML='<input type="text" class="form-control video-link" placeholder="https://drive.google.com/..."><button type="button" class="btn btn-outline-danger" onclick="this.parentNode.remove()">－</button>';
+    container.appendChild(div);
   }
 
   function checkFiles(input) {
-    if (input.files.length > 10) { alert("最多10張圖片！"); input.value=""; return; }
-    for (var i=0; i<input.files.length; i++) {
-      if (input.files[i].size > 10*1024*1024) { alert("第"+(i+1)+"張超過10MB"); input.value=""; return; }
-    }
+    if (input.files.length>10){alert("最多10張圖片！");input.value="";return;}
+    for(var i=0;i<input.files.length;i++){if(input.files[i].size>10*1024*1024){alert("第"+(i+1)+"張超過10MB");input.value="";return;}}
   }
 
-  function resetForm() {
-    document.getElementById('complaintForm').reset();
-    document.getElementById('complaintForm').style.display = "block";
-    document.getElementById('successZone').style.display = "none";
-    _selectedProducts = [];
-    renderProductTags();
-    updateProductHidden();
-    document.getElementById('productSearch').value = '';
-    setTWDate();
-    onSolutionChange('補償/退換貨');
-  }
+  // ===== 送出 =====
+  async function submitForm() {
+    var caseType = _currentCaseType;
+    if (!caseType){alert("請先選擇處理類型");return;}
+    var customerName = document.getElementById('customerName').value.trim();
+    if (!customerName){alert("請填入客人名稱");return;}
 
-  // ===== 表單提交 =====
-  document.getElementById('complaintForm').onsubmit = async function(e) {
-    e.preventDefault();
-    var productNo = document.getElementById('productNoHidden').value.trim();
-    if (!productNo) { alert("請至少加入一個客訴產品料號"); return; }
-    document.getElementById('loadingOverlay').style.display = "block";
-    var form = e.target;
-    var files = document.getElementById('fileInput').files;
-    var fileData = [];
-    for (var i=0; i<files.length; i++) {
-      var b64 = await new Promise(function(res){var r=new FileReader();r.onload=function(ev){res(ev.target.result);};r.readAsDataURL(files[i]);});
-      fileData.push({fileName:files[i].name, base64String:b64});
-    }
+    var platform = document.getElementById('platformSelect').value==='__other__'?document.getElementById('platformOther').value:document.getElementById('platformSelect').value;
+    var buyPlatform = document.getElementById('buyPlatformSelect').value==='__other__'?document.getElementById('buyPlatformOther').value:document.getElementById('buyPlatformSelect').value;
+
     var payload = {
-      brand: form.brand.value,
-      date: form.date.value,
-      customerName: form.customerName.value,
-      orderNo: form.orderNo.value,
-      platform: form.platform.value,
-      buyPlatform: form.buyPlatform.value,
-      productNo: productNo,
-      batchNo: form.batchNo.value,
-      quantity: form.quantity.value,
-      lineItem: form.lineItem.value,
-      category: form.category.value,
-      content: form.content.value,
-      comment: form.comment.value,
-      solution: form.solution.value,
-      fileData: fileData
+      brand: _currentBrand==='ALL'?"<?= brand ?>":_currentBrand,
+      date: document.getElementById('dateInput').value,
+      customerName: customerName, orderNo: document.getElementById('orderNo').value,
+      platform: platform, buyPlatform: buyPlatform, caseType: caseType,
+      productNo:'', batchNo:'', category:'', subType:'', solution:'',
+      content:'', comment:'', deliveryInfo:'', videoLinks:'', fileData:[],
+      needDispatch:false,
+      recipientName:'', recipientAddress:'', recipientTime:'',
+      exchangeItem:'', resendItem:'', quantity:'',
+      compensationNote:'', noteContent:'', discountNote:''
     };
-    google.script.run
-      .withSuccessHandler(function(res) {
-        document.getElementById('loadingOverlay').style.display = "none";
-        if (res.status === "success") {
-          document.getElementById('complaintForm').style.display = "none";
-          document.getElementById('successZone').style.display = "block";
-          document.getElementById('newIdDisplay').innerText = res.id;
-          // 產生 LINE 複製文字
-          _lineText =
-            '【單號】' + payload.orderNo + '\n' +
-            '【購買的品項】' + (payload.lineItem || payload.productNo) + '\n' +
-            '【數量】' + (payload.quantity || '') + '\n' +
-            '【處理方式】' + payload.solution + '\n' +
-            '【訂單/退貨/客訴主因】' + payload.category + '\n' +
-            '【事件發生說明】\n' + payload.content + '\n' +
-            '【行政/行銷處理方式】' + (payload.comment || '') + '\n' +
-            '【聯繫/收件資訊】';
-          document.getElementById('copyTextBox').innerText = _lineText;
-        } else {
-          alert("送出失敗：" + res.message);
-        }
-      })
-      .withFailureHandler(function(err) {
-        document.getElementById('loadingOverlay').style.display = "none";
-        alert("送出失敗：" + err);
-      })
-      .processForm(payload);
-  };
 
-  // ===== 複製文字工具 =====
-  function copyText(text) {
-    var ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.top = '0';
-    ta.style.left = '0';
-    ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.focus();
-    ta.select();
-    try { document.execCommand('copy'); alert('已複製！可直接貼到 LINE'); }
-    catch(e) { alert('複製失敗，請手動選取文字後複製'); }
-    document.body.removeChild(ta);
-  }
+    if (caseType==='訂單處理') {
+      var subType=document.getElementById('orderSubType').value;
+      if(!subType){alert("請選擇訂單處理類型");return;}
+      payload.subType=subType;
+      if(subType==='取消訂單') payload.category=document.getElementById('cancelReason').value;
+      payload.content=document.getElementById('orderNote').value;
 
-  function copyLineText() { copyText(_lineText); }
+    } else if (caseType==='退換貨處理') {
+      payload.productNo=document.getElementById('productNo_return').value.trim();
+      payload.subType=document.getElementById('returnReason').value;
+      var otherR=document.getElementById('returnReasonOther').value.trim();
+      if(otherR) payload.subType+='：'+otherR;
+      var chkR=document.getElementById('chkReturn').checked, chkE=document.getElementById('chkExchange').checked;
+      var actions=[]; if(chkR) actions.push('退貨'); if(chkE) actions.push('換貨');
+      payload.solution=actions.join('+');
+      if(chkR||chkE){
+        payload.recipientName=document.getElementById('recipientName').value;
+        payload.recipientAddress=document.getElementById('recipientAddress').value;
+        payload.recipientTime=document.getElementById('recipientTime').value;
+      }
+      if(chkE) payload.exchangeItem=document.getElementById('exchangeItem').value;
+      payload.content=document.getElementById('returnComment').value;
+      var pkgFiles=document.getElementById('packageFileInput').files;
+      for(var i=0;i<pkgFiles.length;i++){var b64=await new Promise(function(res){var r=new FileReader();r.onload=function(ev){res(ev.target.result);};r.readAsDataURL(pkgFiles[i]);});payload.fileData.push({fileName:pkgFiles[i].name,base64String:b64});}
 
-  function buildLineText(item) {
-    return '【單號】' + (item['訂單編號']||'') + '\n' +
-      '【購買的品項】' + (item['客訴產品']||'') + '\n' +
-      '【數量】\n' +
-      '【處理方式】' + (item['解決方向']||'') + '\n' +
-      '【訂單/退貨/客訴主因】' + (item['客訴分類']||'') + '\n' +
-      '【事件發生說明】\n' + (item['客訴內容']||'') + '\n' +
-      '【行政/行銷處理方式】' + (item['第一階段補充說明']||'') + '\n' +
-      '【聯繫/收件資訊】';
-  }
+    } else if (caseType==='客訴處理') {
+      payload.productNo=document.getElementById('productNo_complaint').value.trim();
+      if(!payload.productNo){alert("請填入客訴產品料號");return;}
+      payload.category=document.getElementById('categorySelect').value;
+      payload.solution=document.getElementById('solutionSelect').value;
+      payload.content=document.getElementById('content_complaint').value.trim();
+      if(!payload.content){alert("請填入客訴內容");return;}
+      payload.comment=document.getElementById('comment_complaint').value;
+      payload.quantity=document.getElementById('quantity').value;
+      payload.needDispatch=document.getElementById('needDispatch').checked;
+      if(payload.needDispatch){payload.batchNo=document.getElementById('batchNoInput').value.trim();if(!payload.batchNo){alert("請填入產品批號");return;}}
+      // 解決方向子欄位
+      var fieldMap={'收件人':'sol_recipientName','收件地址':'sol_recipientAddress','方便收件時間':'sol_recipientTime','換貨品項':'sol_exchangeItem','補寄品項':'sol_resendItem','數量':'sol_quantity','補償說明':'sol_compensationNote','備註':'sol_noteContent','折扣說明':'sol_discountNote'};
+      var payloadMap={'sol_recipientName':'recipientName','sol_recipientAddress':'recipientAddress','sol_recipientTime':'recipientTime','sol_exchangeItem':'exchangeItem','sol_resendItem':'resendItem','sol_quantity':'quantity','sol_compensationNote':'compensationNote','sol_noteContent':'noteContent','sol_discountNote':'discountNote'};
+      var fields=_menuOptions.solutionFields[payload.solution]||[];
+      fields.forEach(function(fieldName){
+        var inputId=fieldMap[fieldName]||('sol_'+fieldName);
+        var el=document.getElementById(inputId);
+        if(el&&payloadMap[inputId]) payload[payloadMap[inputId]]=el.value;
+      });
+      var videoLinks=[];document.querySelectorAll('.video-link').forEach(function(inp){var v=inp.value.trim();if(v)videoLinks.push(v);});
+      payload.videoLinks=videoLinks.join(', ');
+      var files=document.getElementById('fileInput').files;
+      for(var i=0;i<files.length;i++){var b64=await new Promise(function(res){var r=new FileReader();r.onload=function(ev){res(ev.target.result);};r.readAsDataURL(files[i]);});payload.fileData.push({fileName:files[i].name,base64String:b64});}
 
-  var _recordCache = {};
-
-  // ===== 複製歷史記錄的 LINE 文字 =====
-  var _recordCache = {};
-
-  function copyRecordLineText(id) {
-    var item = _recordCache[id];
-    if (!item) { alert('找不到資料'); return; }
-    var text =
-      '【單號】' + (item['訂單編號']||'') + '\n' +
-      '【購買的品項】' + (item['客訴產品']||'') + '\n' +
-      '【數量】\n' +
-      '【處理方式】' + (item['解決方向']||'') + '\n' +
-      '【訂單/退貨/客訴主因】' + (item['客訴分類']||'') + '\n' +
-      '【事件發生說明】\n' + (item['客訴內容']||'') + '\n' +
-      '【行政/行銷處理方式】' + (item['第一階段補充說明']||'') + '\n' +
-      '【聯繫/收件資訊】';
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(text).then(function(){ alert('已複製！可直接貼到 LINE'); });
-    } else {
-      var ta = document.createElement('textarea');
-      ta.value = text; document.body.appendChild(ta); ta.select();
-      document.execCommand('copy'); document.body.removeChild(ta);
-      alert('已複製！可直接貼到 LINE');
+    } else if (caseType==='專線處理') {
+      payload.content=document.getElementById('content_hotline').value.trim();
+    } else if (caseType==='其他事項') {
+      payload.content=document.getElementById('content_other').value.trim();
     }
+
+    document.getElementById('loadingOverlay').style.display="block";
+    google.script.run
+      .withSuccessHandler(function(res){
+        document.getElementById('loadingOverlay').style.display="none";
+        if(res.status==="success"){
+          document.getElementById('formZone').style.display="none";
+          document.getElementById('successZone').style.display="block";
+          document.getElementById('newIdDisplay').innerText=res.id;
+          var lineItem=caseType==='客訴處理'?document.getElementById('lineItem').value:'';
+          _lineText='【單號】'+(payload.orderNo||'')+'\n【購買的品項】'+(lineItem||payload.productNo||'')+'\n【數量】'+(payload.quantity||'')+'\n【處理方式】'+(payload.solution||'')+'\n【訂單/退貨/客訴主因】'+(payload.category||payload.subType||'')+'\n【事件發生說明】\n'+(payload.content||'')+'\n【行政/行銷處理方式】'+(payload.comment||'')+'\n【聯繫/收件資訊】'+(payload.recipientName?(payload.recipientName+' '+payload.recipientAddress):'');
+          document.getElementById('copyTextBox').innerText=_lineText;
+        } else { alert("送出失敗："+res.message); }
+      })
+      .withFailureHandler(function(err){document.getElementById('loadingOverlay').style.display="none";alert("送出失敗："+err);})
+      .processForm(payload);
+  }
+
+  function copyText(text){var ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.focus();ta.select();try{document.execCommand('copy');alert('已複製！');}catch(e){alert('複製失敗，請手動複製');}document.body.removeChild(ta);}
+  function copyLineText(){copyText(_lineText);}
+
+  function buildLineText(item){
+    return '【單號】'+(item['訂單編號']||'')+'\n【購買的品項】'+(item['客訴產品']||'')+'\n【數量】\n【處理方式】'+(item['解決方向']||'')+'\n【訂單/退貨/客訴主因】'+(item['客訴分類']||item['子類型/原因']||'')+'\n【事件發生說明】\n'+(item['客訴內容']||'')+'\n【行政/行銷處理方式】'+(item['第一階段補充說明']||'')+'\n【聯繫/收件資訊】'+(item['收件人']?(item['收件人']+' '+item['收件地址']):'');
+  }
+
+  function resetForm(){
+    document.getElementById('formZone').style.display="block";
+    document.getElementById('successZone').style.display="none";
+    document.querySelectorAll('input[type=text],input[type=date],textarea').forEach(function(el){el.value='';});
+    document.querySelectorAll('input[type=checkbox]').forEach(function(el){el.checked=false;});
+    document.querySelectorAll('select').forEach(function(el){el.selectedIndex=0;});
+    caseTypes.forEach(function(t){document.getElementById('block_'+t).style.display='none';});
+    document.getElementById('dispatchDetail').style.display='none';
+    document.getElementById('deliveryInfoBlock').style.display='none';
+    document.getElementById('cancelReasonBlock').style.display='none';
+    document.getElementById('orderNoteBlock').style.display='none';
+    document.getElementById('platformOther').style.display='none';
+    document.getElementById('buyPlatformOther').style.display='none';
+    document.getElementById('solutionSubFields').innerHTML='';
+    document.getElementById('videoLinks').innerHTML='<div class="input-group mb-1"><input type="text" class="form-control video-link" placeholder="https://drive.google.com/..."><button type="button" class="btn btn-outline-secondary" onclick="addVideoLink()">＋</button></div>';
+    document.querySelectorAll('.case-type-btn').forEach(function(btn){btn.classList.remove('active');});
+    document.getElementById('submitBtn').disabled=true;
+    document.getElementById('submitBtn').textContent='請先選擇處理類型';
+    _currentCaseType='';
+    setTWDate();
+  }
+
+  // ===== 統計 =====
+  function goToUnresolved(){
+    _filterUnresolved=true;
+    document.getElementById('queryFilter').style.display='block';
+    bootstrap.Tab.getOrCreateInstance(document.querySelector('[data-bs-target="#query"]')).show();
+    loadRecords();
+  }
+  function clearFilter(){_filterUnresolved=false;document.getElementById('queryFilter').style.display='none';loadRecords();}
+
+  function setSummaryRange(range){
+    _summaryRange=range;
+    ['7','30','Month'].forEach(function(r){var btn=document.getElementById('rangeBtn'+r);if(btn)btn.className='btn btn-outline-primary';});
+    var activeId=range==='month'?'rangeBtnMonth':'rangeBtn'+range;
+    var ab=document.getElementById(activeId);if(ab)ab.className='btn btn-primary';
+    renderDailyStats();
+  }
+
+  function loadSummary(){
+    document.getElementById('dailyStats').innerHTML='<div class="spinner-border spinner-border-sm"></div> 載入中..';
+    google.script.run
+      .withSuccessHandler(function(records){
+        _allRecords=records||[];
+        var brand=document.getElementById('brandFilter')?document.getElementById('brandFilter').value:'<?= brand ?>';
+        var filtered=brand==='ALL'?_allRecords:_allRecords.filter(function(r){return r['品牌']===brand;});
+        var unresolved=filtered.filter(function(r){return r['處理狀態']!=='已結案';}).length;
+        document.getElementById('unresolvedCount').innerText=unresolved;
+        renderDailyStats();
+      })
+      .withFailureHandler(function(err){document.getElementById('dailyStats').innerHTML='載入失敗：'+escText(String(err));})
+      .getBrandRecords(_currentBrand);
+  }
+
+  function fmtDate(d){var y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');return y+'-'+m+'-'+day;}
+
+  function renderDailyStats(){
+    var now=new Date();
+    var utc=now.getTime()+now.getTimezoneOffset()*60000;
+    var tw=new Date(utc+8*60*60000);
+    var days=[];
+    if(_summaryRange==='month'){
+      var y=tw.getFullYear(),m=tw.getMonth();
+      var firstDay=new Date(y,m,1);
+      var diff=Math.floor((tw-firstDay)/86400000);
+      for(var i=diff;i>=0;i--){days.push(fmtDate(new Date(tw.getTime()-i*86400000)));}
+    } else {
+      for(var i=_summaryRange-1;i>=0;i--){days.push(fmtDate(new Date(tw.getTime()-i*86400000)));}
+    }
+
+    // 品牌篩選
+    var brand=document.getElementById('brandFilter')?document.getElementById('brandFilter').value:'<?= brand ?>';
+    var records=brand==='ALL'?_allRecords:_allRecords.filter(function(r){return r['品牌']===brand;});
+
+    var byDate={};
+    days.forEach(function(d){byDate[d]=[];});
+    records.forEach(function(r){var d=(r['建立日期']||'').slice(0,10);if(byDate.hasOwnProperty(d))byDate[d].push(r);});
+
+    var todayStr=fmtDate(tw);
+    var html='';
+    days.slice().reverse().forEach(function(dateStr){
+      var recs=byDate[dateStr], total=recs.length, isToday=dateStr===todayStr;
+      var label=isToday?dateStr+' <span class="badge bg-danger ms-1">今日</span>':dateStr;
+      var byCat={};
+      recs.forEach(function(r){var cat=r['客訴分類']||r['子類型/原因']||r['處理類型']||'未分類';if(!byCat[cat])byCat[cat]=[];byCat[cat].push(r);});
+
+      html+='<details class="mb-2"'+(isToday?' open':'')+'>';
+      html+='<summary class="d-flex align-items-center justify-content-between p-2 rounded" style="cursor:pointer;background:'+(total>0?'#e8f4fd':'#f8f9fa')+'">';
+      html+='<span class="fw-bold">'+label+'</span><span class="badge '+(total>0?'bg-primary':'bg-secondary')+' rounded-pill">'+total+' 筆</span>';
+      html+='</summary>';
+
+      if(total>0){
+        html+='<div class="ps-3 pt-2">';
+        Object.keys(byCat).forEach(function(cat){
+          var catRecs=byCat[cat];
+          var byProduct={};
+          catRecs.forEach(function(r){var p=r['客訴產品']||'（無料號）';if(!byProduct[p])byProduct[p]=[];byProduct[p].push(r);});
+          html+='<details class="mb-1"><summary class="d-flex align-items-center gap-2 p-1" style="cursor:pointer">';
+          html+='<span class="badge bg-light text-dark border">'+escText(cat)+'</span><span class="text-muted small">×'+catRecs.length+'</span></summary>';
+          html+='<div class="ps-3 pt-1">';
+          Object.keys(byProduct).forEach(function(product){
+            var pRecs=byProduct[product];
+            html+='<details class="mb-1"><summary class="d-flex align-items-center gap-2 p-1" style="cursor:pointer">';
+            html+='<span class="text-primary small fw-bold">'+escText(product)+'</span><span class="text-muted small">×'+pRecs.length+'</span></summary>';
+            html+='<div class="ps-3 pt-1">';
+            pRecs.forEach(function(r){
+              var isClosed=r['處理狀態']==='已結案';
+              html+='<div class="d-flex align-items-start gap-2 py-1 border-bottom small">';
+              html+='<span class="badge '+(isClosed?'bg-success':'bg-warning text-dark')+' flex-shrink-0">'+(isClosed?'✅':'⚠️')+'</span>';
+              html+='<div><b>'+escText(r['編碼'])+'</b> - '+escText(r['客人名稱']);
+              if(r['客訴內容'])html+='<br><span class="text-muted">'+escText(r['客訴內容'].slice(0,50)+(r['客訴內容'].length>50?'…':''))+'</span>';
+              html+='</div></div>';
+            });
+            html+='</div></details>';
+          });
+          html+='</div></details>';
+        });
+        html+='</div>';
+      }
+      html+='</details>';
+    });
+    document.getElementById('dailyStats').innerHTML=html||'<div class="text-muted text-center py-3">此範圍內無資料</div>';
   }
 
   // ===== 歷史查詢 =====
-  function loadRecords() {
-    var brand = "<?= brand ?>";
-    var listDiv = document.getElementById('recordList');
-    listDiv.innerHTML = "讀取中...";
+  var _allRecordsQuery=[];
+  function filterRecords(keyword){
+    var hint=document.getElementById('searchHint');
+    if(!keyword.trim()){hint.style.display='none';renderRecords(_allRecordsQuery);return;}
+    var kw=keyword.trim().toLowerCase();
+    var filtered=_allRecordsQuery.filter(function(item){
+      return (item['訂單編號']||'').toLowerCase().indexOf(kw)>=0||
+             (item['客訴產品']||'').toLowerCase().indexOf(kw)>=0||
+             (item['客人名稱']||'').toLowerCase().indexOf(kw)>=0||
+             (item['編碼']||'').toLowerCase().indexOf(kw)>=0;
+    });
+    hint.style.display='';
+    hint.textContent='搜尋「'+keyword+'」共找到 '+filtered.length+' 筆';
+    renderRecords(filtered);
+  }
+
+  function loadRecords(){
+    var listDiv=document.getElementById('recordList');
+    listDiv.innerHTML="讀取中...";
     google.script.run
-      .withSuccessHandler(function(data) {
-        if (!data || data.length === 0) { listDiv.innerHTML='<div class="alert alert-light text-center">目前尚無客訴記錄</div>'; return; }
-        var html = '';
-        _recordCache = {};
-        _recordCache = {};
-        data.forEach(function(item) {
-          _recordCache[item['編碼']||''] = item;
-          var isClosed = item['處理狀態'] === '已結案';
-          var id = item['編碼'] || '';
-          _recordCache[id] = item; // 存入 cache 供複製用
-          var imgHtml = '';
-          (item['圖片網址清單'] ? item['圖片網址清單'].split(", ") : []).forEach(function(url) {
-            var m = url.match(/[-\w]{25,}/);
-            if (m) { imgHtml += '<a href="'+url+'" target="_blank"><img src="https://drive.google.com/thumbnail?id='+m[0]+'&sz=w200" class="img-thumb" onerror="this.src=\'https://placehold.co/80x80?text=No+Image\'"></a>'; }
-          });
-          var batchNo = item['產品批號'] ? '<span class="badge bg-secondary ms-1">批號：'+escText(item['產品批號'])+'</span>' : '';
-          var statusBadge = isClosed
-            ? '<span class="badge bg-success status-badge">✅ 已結案</span>'
-            : '<span class="badge bg-warning text-dark status-badge">⚠️ 未解決</span>';
-          var actionArea = isClosed
-            ? '<div class="closed-banner mt-2">✅ 已結案 — 進度已鎖定</div><div class="mt-2"><button class="btn btn-sm btn-outline-warning" onclick="askStatusChange(\''+id+'\',\'reopen\')">🔄 重新開啟</button></div>'
-            : '<div class="mt-3 p-2 bg-white border rounded">'+
-              '<div class="mb-2"><label class="form-label small fw-bold mb-1">更新身份</label>'+
-              '<select class="form-select form-select-sm" id="role_'+id+'"><option value="brand">品牌客服</option><option value="wh">汶和 🔒</option></select></div>'+
-              '<div class="input-group mb-2"><textarea class="form-control form-control-sm" id="up_'+id+'" placeholder="補充後續處理進度..."></textarea>'+
-              '<button class="btn btn-sm btn-primary" onclick="addProgress(\''+id+'\',this)">更新</button></div>'+
-              '<button class="btn btn-sm btn-success w-100" onclick="askStatusChange(\''+id+'\',\'close\')">✅ 品牌客服結案</button></div>';
-          html += '<div class="card card-body shadow-sm'+(isClosed?' closed-card':'')+'"><details>'+
-            '<summary class="h6 m-0">'+statusBadge+' ['+escText(item['客訴日期'])+'] <b>'+escText(id)+'</b> - '+escText(item['客人名稱'])+'</summary>'+
-            '<div class="mt-3 border-top pt-2">'+
-            '<div class="row small"><div class="col-6"><b>單號：</b>'+escText(item['訂單編號'])+'</div>'+
-            '<div class="col-6 text-end"><b>料號：</b>'+escText(item['客訴產品'])+batchNo+'</div></div>'+
-            '<p class="mt-2 mb-1"><b>平台：</b>'+escText(item['客訴平台'])+' / <b>購買：</b>'+escText(item['購買平台'])+'</p>'+
-            '<p class="mb-1"><b>內容：</b>'+escText(item['客訴內容'])+'</p>'+
-            '<div class="progress-box"><b>📝 後續進度：</b><br>'+escText(item['後續進度記錄']||'尚無進度')+'</div>'+
-            '<div class="mt-2">'+imgHtml+'</div>'+
-            '<div class="mt-2"><button class="btn btn-sm btn-outline-secondary" onclick="copyRecordLineText(\''+id+'\')">📋 複製 LINE 文字</button></div>'+
-            actionArea+'</div></details></div>';
-        });
-        listDiv.innerHTML = html;
+      .withSuccessHandler(function(data){
+        _allRecordsQuery=data||[];
+        if(_filterUnresolved) _allRecordsQuery=_allRecordsQuery.filter(function(item){return item['處理狀態']!=='已結案';});
+        var kw=document.getElementById('searchInput')?document.getElementById('searchInput').value.trim():'';
+        if(kw){filterRecords(kw);return;}
+        renderRecords(_allRecordsQuery);
       })
-      .withFailureHandler(function(err) { listDiv.innerHTML='<div class="alert alert-danger">讀取失敗：'+escText(String(err))+'</div>'; })
-      .getBrandRecords(brand);
+      .withFailureHandler(function(err){document.getElementById('recordList').innerHTML='<div class="alert alert-danger">讀取失敗：'+escText(String(err))+'</div>';})
+      .getBrandRecords(_currentBrand);
   }
 
-  function addProgress(id, btn) {
-    var text = document.getElementById('up_'+id).value.trim();
-    if (!text) return;
-    var role = document.getElementById('role_'+id).value;
-    if (role === 'wh' && !whUnlocked) {
-      pendingProgressId=id; pendingProgressBtn=btn;
-      document.getElementById('whPassword').value='';
-      document.getElementById('whError').style.display='none';
-      new bootstrap.Modal(document.getElementById('whModal')).show();
-      return;
-    }
-    submitProgress(id, role==='wh' ? '[汶和] '+text : text, btn);
+  function renderRecords(data){
+    var listDiv=document.getElementById('recordList');
+    if(!data||data.length===0){listDiv.innerHTML='<div class="alert alert-light text-center">目前尚無符合的記錄</div>';return;}
+    var html='';
+    data.forEach(function(item){
+      var isClosed=item['處理狀態']==='已結案';
+      var id=item['編碼']||'';
+      var caseTypeBadge={'訂單處理':'<span class="badge bg-primary me-1">⭐️訂單</span>','退換貨處理':'<span class="badge bg-success me-1">🔄退換貨</span>','客訴處理':'<span class="badge bg-danger me-1">📢客訴</span>','專線處理':'<span class="badge bg-warning text-dark me-1">📞專線</span>','其他事項':'<span class="badge bg-secondary me-1">📝其他</span>'}[item['處理類型']]||'<span class="badge bg-secondary me-1">'+escText(item['處理類型']||'')+'</span>';
+      var imgHtml='';
+      (item['圖片網址清單']?item['圖片網址清單'].split(", "):[]).forEach(function(url){var m=url.match(/[-\w]{25,}/);if(m)imgHtml+='<a href="'+url+'" target="_blank"><img src="https://drive.google.com/thumbnail?id='+m[0]+'&sz=w200" class="img-thumb" onerror="this.src=\'https://placehold.co/80x80?text=No+Image\'"></a>';});
+      var videoHtml='';
+      if(item['影片連結']){item['影片連結'].split(', ').forEach(function(url){if(url.trim())videoHtml+='<a href="'+url.trim()+'" target="_blank" class="btn btn-sm btn-outline-secondary me-1 mb-1">🎥 影片</a>';});}
+      var statusBadge=isClosed?'<span class="badge bg-success status-badge">✅ 已結案</span>':'<span class="badge bg-warning text-dark status-badge">⚠️ 未解決</span>';
+
+      // 解決方向子欄位顯示
+      var subFieldsHtml='';
+      var subFieldNames=['收件人','收件地址','方便收件時間','換貨品項','補寄品項','數量','補償說明','備註','折扣說明'];
+      var subFieldKeys=['收件人','收件地址','方便收件時間','換貨品項','補寄品項','數量','補償說明','備註','折扣說明'];
+      var hasSubField=false;
+      subFieldKeys.forEach(function(key){if(item[key])hasSubField=true;});
+      if(hasSubField){
+        subFieldsHtml='<div class="small bg-light p-2 rounded mt-1">';
+        subFieldKeys.forEach(function(key){if(item[key])subFieldsHtml+='<b>'+escText(key)+'：</b>'+escText(item[key])+'　';});
+        subFieldsHtml+='</div>';
+      }
+
+      var actionArea=isClosed
+        ?'<div class="closed-banner mt-2">✅ 已結案</div><div class="mt-2"><button class="btn btn-sm btn-outline-warning" onclick="askStatusChange(\''+id+'\',\'reopen\')">🔄 重新開啟</button></div>'
+        :'<div class="mt-3 p-2 bg-white border rounded"><div class="mb-2"><select class="form-select form-select-sm" id="role_'+id+'"><option value="brand">品牌客服</option><option value="wh">汶和 🔒</option></select></div><div class="input-group mb-2"><textarea class="form-control form-control-sm" id="up_'+id+'" placeholder="補充後續處理進度..."></textarea><button class="btn btn-sm btn-primary" onclick="addProgress(\''+id+'\',this)">更新</button></div><button class="btn btn-sm btn-success w-100" onclick="askStatusChange(\''+id+'\',\'close\')">✅ 結案</button></div>';
+
+      var lineTextEncoded=encodeURIComponent(buildLineText(item));
+      var copyBtn='<button class="btn btn-sm btn-outline-secondary mt-2 w-100" onclick="copyText(decodeURIComponent(\''+lineTextEncoded+'\'))">📋 複製 LINE 文字</button>';
+
+      html+='<div class="card card-body shadow-sm'+(isClosed?' closed-card':'')+'"><details>'+
+        '<summary class="h6 m-0">'+statusBadge+caseTypeBadge+' ['+escText(item['建立日期'])+'] <b>'+escText(id)+'</b> - '+escText(item['客人名稱'])+(item['客訴產品']?' <span class="text-muted fw-normal small">'+escText(item['客訴產品'])+'</span>':'')+
+        '</summary><div class="mt-3 border-top pt-2">'+
+        '<div class="row small"><div class="col-6"><b>單號：</b>'+escText(item['訂單編號'])+'</div><div class="col-6 text-end"><b>料號：</b>'+escText(item['客訴產品'])+(item['產品批號']?'<span class="badge bg-secondary ms-1">批號：'+escText(item['產品批號'])+'</span>':'')+'</div></div>'+
+        '<p class="mt-1 mb-1 small"><b>平台：</b>'+escText(item['客訴平台'])+' / <b>購買：</b>'+escText(item['購買平台'])+'</p>'+
+        (item['客訴分類']?'<p class="mb-1 small"><b>分類：</b>'+escText(item['客訴分類'])+(item['子類型/原因']?' / '+escText(item['子類型/原因']):'')+'</p>':'')+
+        (item['解決方向']?'<p class="mb-1 small"><b>解決方向：</b>'+escText(item['解決方向'])+subFieldsHtml+'</p>':'')+
+        '<p class="mb-1"><b>內容：</b>'+escText(item['客訴內容'])+'</p>'+
+        (item['派工汶和']==='是'?'<span class="badge bg-warning text-dark mb-1">🔔 已派工汶和</span>':'')+
+        '<div class="progress-box"><b>📝 後續進度：</b><br>'+escText(item['後續進度記錄']||'尚無進度')+'</div>'+
+        '<div class="mt-2">'+imgHtml+videoHtml+'</div>'+
+        copyBtn+actionArea+'</div></details></div>';
+    });
+    listDiv.innerHTML=html;
   }
 
-  function confirmWhPassword() {
-    if (document.getElementById('whPassword').value !== WH_PASSWORD) { document.getElementById('whError').style.display='block'; return; }
-    whUnlocked = true;
-    bootstrap.Modal.getInstance(document.getElementById('whModal')).hide();
-    if (pendingProgressId) {
-      submitProgress(pendingProgressId, '[汶和] '+document.getElementById('up_'+pendingProgressId).value.trim(), pendingProgressBtn);
-      pendingProgressId=null; pendingProgressBtn=null;
-    }
+  function addProgress(id,btn){
+    var text=document.getElementById('up_'+id).value.trim();if(!text)return;
+    var role=document.getElementById('role_'+id).value;
+    if(role==='wh'&&!whUnlocked){pendingProgressId=id;pendingProgressBtn=btn;document.getElementById('whPassword').value='';document.getElementById('whError').style.display='none';new bootstrap.Modal(document.getElementById('whModal')).show();return;}
+    submitProgress(id,role==='wh'?'[汶和] '+text:text,btn);
   }
 
-  function submitProgress(id, text, btn) {
-    btn.disabled=true; var orig=btn.innerText; btn.innerText='稍候..';
+  function confirmWhPassword(){
+    if(document.getElementById('whPassword').value!==WH_PASSWORD){document.getElementById('whError').style.display='block';return;}
+    whUnlocked=true;bootstrap.Modal.getInstance(document.getElementById('whModal')).hide();
+    if(pendingProgressId){submitProgress(pendingProgressId,'[汶和] '+document.getElementById('up_'+pendingProgressId).value.trim(),pendingProgressBtn);pendingProgressId=null;pendingProgressBtn=null;}
+  }
+
+  function submitProgress(id,text,btn){
+    btn.disabled=true;var orig=btn.innerText;btn.innerText='稍候..';
     google.script.run
-      .withSuccessHandler(function(){ alert("更新成功！"); document.getElementById('up_'+id).value=''; loadRecords(); })
-      .withFailureHandler(function(err){ alert("更新失敗："+err); btn.disabled=false; btn.innerText=orig; })
-      .updateComplaintProgress(id, text);
+      .withSuccessHandler(function(){alert("更新成功！");document.getElementById('up_'+id).value='';loadRecords();})
+      .withFailureHandler(function(err){alert("更新失敗："+err);btn.disabled=false;btn.innerText=orig;})
+      .updateComplaintProgress(id,text);
   }
 
-  function askStatusChange(id, action) {
-    pendingStatusId=id; pendingStatusAction=action;
-    var h=document.getElementById('statusModalHeader'), t=document.getElementById('statusModalTitle');
-    var b=document.getElementById('statusModalBody'), c=document.getElementById('statusModalConfirm');
-    if (action==='close') {
-      h.className='modal-header bg-success text-white'; t.innerText='✅ 確認結案';
-      b.innerHTML='<p>結案後進度將鎖定，品牌客服可重新開啟。</p><p class="text-muted small">案件：'+escText(id)+'</p>';
-      c.className='btn btn-success btn-sm'; c.innerText='確認結案';
-    } else {
-      h.className='modal-header bg-warning'; t.innerText='🔄 確認重新開啟';
-      b.innerHTML='<p>重新開啟後可繼續更新進度。</p><p class="text-muted small">案件：'+escText(id)+'</p>';
-      c.className='btn btn-warning btn-sm'; c.innerText='確認重新開啟';
-    }
+  function askStatusChange(id,action){
+    pendingStatusId=id;pendingStatusAction=action;
+    var h=document.getElementById('statusModalHeader'),t=document.getElementById('statusModalTitle'),b=document.getElementById('statusModalBody'),c=document.getElementById('statusModalConfirm');
+    if(action==='close'){h.className='modal-header bg-success text-white';t.innerText='✅ 確認結案';b.innerHTML='<p>結案後進度將鎖定。</p><p class="text-muted small">案件：'+escText(id)+'</p>';c.className='btn btn-success btn-sm';c.innerText='確認結案';}
+    else{h.className='modal-header bg-warning';t.innerText='🔄 確認重新開啟';b.innerHTML='<p>重新開啟後可繼續更新進度。</p>';c.className='btn btn-warning btn-sm';c.innerText='確認重新開啟';}
     new bootstrap.Modal(document.getElementById('statusModal')).show();
   }
 
-  function confirmStatusChange() {
+  function confirmStatusChange(){
     bootstrap.Modal.getInstance(document.getElementById('statusModal')).hide();
     google.script.run
-      .withSuccessHandler(function(res){ res.status==='success' ? loadRecords() : alert("操作失敗："+res.message); })
-      .withFailureHandler(function(err){ alert("操作失敗："+err); })
-      .setComplaintStatus(pendingStatusId, pendingStatusAction==='close' ? '已結案' : '未解決');
-  }
-
-  // ===== 統計總結 =====
-  function loadSummary() {
-    var brand = "<?= brand ?>";
-    document.getElementById('daySummary').innerHTML='<div class="spinner-border spinner-border-sm"></div> 載入中..';
-    document.getElementById('monthSummary').innerHTML='<div class="spinner-border spinner-border-sm"></div> 載入中..';
-    google.script.run
-      .withSuccessHandler(function(res) {
-        document.getElementById('daySummary').innerHTML = res.day.length
-          ? '<ul class="list-group list-group-flush">'+res.day.map(function(s){return'<li class="list-group-item d-flex justify-content-between align-items-center">'+escText(s.cat)+'<span class="badge bg-primary rounded-pill">'+s.count+'</span></li>';}).join('')+'</ul>'
-          : '今日尚無資料';
-        document.getElementById('monthSummary').innerHTML = res.month.length
-          ? '<ul class="list-group list-group-flush">'+res.month.map(function(s){return'<li class="list-group-item d-flex justify-content-between align-items-center">'+escText(s.cat)+'<span class="badge bg-info text-dark rounded-pill">'+s.count+'</span></li>';}).join('')+'</ul>'
-          : '本月尚無資料';
-        document.getElementById('unresolvedCount').innerText = res.unresolved;
-      })
-      .withFailureHandler(function(err) {
-        document.getElementById('daySummary').innerHTML='載入失敗：'+escText(String(err));
-        document.getElementById('monthSummary').innerHTML='載入失敗';
-      })
-      .getDashboardData(brand);
+      .withSuccessHandler(function(res){res.status==='success'?loadRecords():alert("操作失敗："+res.message);})
+      .withFailureHandler(function(err){alert("操作失敗："+err);})
+      .setComplaintStatus(pendingStatusId,pendingStatusAction==='close'?'已結案':'未解決');
   }
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

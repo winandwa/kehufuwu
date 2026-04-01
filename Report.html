@@ -6,6 +6,10 @@
   <style>
     body { padding: 20px; background-color: #f8f9fa; font-family: "Microsoft JhengHei", sans-serif; }
     .card { margin-bottom: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    details > summary { list-style: none; cursor: pointer; }
+    details > summary::-webkit-details-marker { display: none; }
+    details > summary::before { content: "▶ "; font-size: 0.8em; }
+    details[open] > summary::before { content: "▼ "; }
   </style>
 </head>
 <body onload="loadReport()">
@@ -36,10 +40,11 @@
   </div>
 
   <div class="container">
-    <div class="d-flex align-items-center mb-4">
+    <div class="d-flex align-items-center gap-3 mb-4 flex-wrap">
       <h3 class="text-primary fw-bold mb-0">📊 分析報表</h3>
-      <div class="ms-3">
-        <select id="brandFilter" class="form-select form-select-sm" onchange="loadReport()" style="width:120px;">
+      <div class="d-flex align-items-center gap-2">
+        <label class="small text-muted mb-0">品牌：</label>
+        <select id="brandFilter" class="form-select form-select-sm" style="width:130px;" onchange="loadReport()">
           <option value="ALL">全部品牌</option>
           <option value="TLV">TLV</option>
           <option value="VW">VW</option>
@@ -47,21 +52,73 @@
           <option value="MH">MH</option>
         </select>
       </div>
+      <div class="d-flex align-items-center gap-2">
+        <label class="small text-muted mb-0">處理類型：</label>
+        <select id="caseTypeFilter" class="form-select form-select-sm" style="width:150px;" onchange="loadReport()">
+          <option value="ALL">全部類型</option>
+          <option value="客訴處理">📢 客訴處理</option>
+          <option value="退換貨處理">🔄 退換貨處理</option>
+          <option value="訂單處理">⭐️ 訂單處理</option>
+          <option value="專線處理">📞 專線處理</option>
+          <option value="其他事項">📝 其他事項</option>
+        </select>
+      </div>
     </div>
 
+    <!-- 數字摘要 -->
     <div class="row mb-3">
-      <div class="col-md-3 mb-3"><div class="card card-body border-primary text-center py-3"><div class="fs-3 fw-bold text-primary" id="statTotal">-</div><div class="text-muted small">總客訴數</div></div></div>
-      <div class="col-md-3 mb-3"><div class="card card-body border-danger text-center py-3"><div class="fs-3 fw-bold text-danger" id="statUnresolved">-</div><div class="text-muted small">未解決</div></div></div>
-      <div class="col-md-3 mb-3"><div class="card card-body border-success text-center py-3"><div class="fs-3 fw-bold text-success" id="statClosed">-</div><div class="text-muted small">已結案</div></div></div>
-      <div class="col-md-3 mb-3"><div class="card card-body border-warning text-center py-3"><div class="fs-3 fw-bold text-warning" id="statToday">-</div><div class="text-muted small">今日新增</div></div></div>
+      <div class="col-6 col-md-3 mb-3"><div class="card card-body border-primary text-center py-3"><div class="fs-3 fw-bold text-primary" id="statTotal">-</div><div class="text-muted small">總案件數</div></div></div>
+      <div class="col-6 col-md-3 mb-3"><div class="card card-body border-danger text-center py-3"><div class="fs-3 fw-bold text-danger" id="statUnresolved">-</div><div class="text-muted small">未解決</div></div></div>
+      <div class="col-6 col-md-3 mb-3"><div class="card card-body border-success text-center py-3"><div class="fs-3 fw-bold text-success" id="statClosed">-</div><div class="text-muted small">已結案</div></div></div>
+      <div class="col-6 col-md-3 mb-3"><div class="card card-body border-warning text-center py-3"><div class="fs-3 fw-bold text-warning" id="statToday">-</div><div class="text-muted small">今日新增</div></div></div>
     </div>
 
     <div class="row">
+      <!-- 依品牌分布（ALL時才顯示） -->
+      <div class="col-12 mb-3" id="brandDistBlock">
+        <div class="card card-body shadow-sm">
+          <h5>🏷️ 依品牌分布</h5>
+          <div id="brandSummary">載入中...</div>
+        </div>
+      </div>
+
+      <!-- 依處理類型分布 -->
+      <div class="col-md-6 mb-3">
+        <div class="card card-body shadow-sm">
+          <h5>📂 依處理類型</h5>
+          <div id="caseTypeSummary">載入中...</div>
+        </div>
+      </div>
+
+      <!-- 依客訴分類 -->
+      <div class="col-md-6 mb-3">
+        <div class="card card-body shadow-sm">
+          <h5>🏷️ 依客訴分類</h5>
+          <div id="catSummary">載入中...</div>
+        </div>
+      </div>
+
+      <!-- 依解決方向 -->
+      <div class="col-md-6 mb-3">
+        <div class="card card-body shadow-sm">
+          <h5>🎯 依解決方向</h5>
+          <div id="solutionSummary">載入中...</div>
+        </div>
+      </div>
+
+      <!-- 派工汶和統計 -->
+      <div class="col-md-6 mb-3">
+        <div class="card card-body shadow-sm">
+          <h5>🔔 派工汶和統計</h5>
+          <div id="dispatchSummary">載入中...</div>
+        </div>
+      </div>
+
       <!-- 依品項分析 -->
       <div class="col-12 mb-3">
         <div class="card card-body shadow-sm">
-          <h5>📦 依品項（料號）分析</h5>
-          <div id="productSummary"><div class="spinner-border spinner-border-sm"></div> 載入中...</div>
+          <h5>📦 依品項（料號）分析 <small class="text-muted fw-normal fs-6">（點擊料號查看詳細趨勢）</small></h5>
+          <div id="productSummary">載入中...</div>
         </div>
       </div>
 
@@ -76,8 +133,8 @@
       <!-- 當日統計 -->
       <div class="col-md-6 mb-3">
         <div class="card card-body border-primary shadow-sm">
-          <h5>📅 當日客訴統計（依分類）</h5>
-          <div id="daySummary"><div class="spinner-border spinner-border-sm"></div> 載入中...</div>
+          <h5>📅 當日統計（依分類）</h5>
+          <div id="daySummary">載入中...</div>
         </div>
       </div>
 
@@ -85,7 +142,7 @@
       <div class="col-md-6 mb-3">
         <div class="card card-body border-info shadow-sm">
           <h5>📅 本月累積統計（依分類）</h5>
-          <div id="monthSummary"><div class="spinner-border spinner-border-sm"></div> 載入中...</div>
+          <div id="monthSummary">載入中...</div>
         </div>
       </div>
     </div>
@@ -95,71 +152,162 @@
   var dateChartInstance = null;
   var productDateChartInst = null;
   var productCatChartInst = null;
-  var allRecordsCache = [];
 
-  function escText(s) {
-    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  function escText(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+  function fmtDate(d) {
+    var y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+    return y+'-'+m+'-'+day;
   }
 
   function loadReport() {
     var brand = document.getElementById('brandFilter').value;
-    document.getElementById('productSummary').innerHTML='<div class="spinner-border spinner-border-sm"></div> 載入中...';
-    document.getElementById('daySummary').innerHTML='<div class="spinner-border spinner-border-sm"></div> 載入中...';
-    document.getElementById('monthSummary').innerHTML='<div class="spinner-border spinner-border-sm"></div> 載入中...';
-    document.getElementById('statTotal').innerText='-';
-    document.getElementById('statUnresolved').innerText='-';
-    document.getElementById('statClosed').innerText='-';
-    document.getElementById('statToday').innerText='-';
+    var caseTypeFilter = document.getElementById('caseTypeFilter').value;
 
-    // 同時抓 dashboard 資料和全部記錄
+    // 品牌分布只在 ALL 時顯示
+    document.getElementById('brandDistBlock').style.display = brand==='ALL' ? '' : 'none';
+
+    ['productSummary','daySummary','monthSummary','catSummary','solutionSummary','caseTypeSummary','dispatchSummary','brandSummary'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) el.innerHTML = '<div class="spinner-border spinner-border-sm"></div> 載入中...';
+    });
+
     google.script.run
-      .withSuccessHandler(function(res) {
-        // 數字卡片
-        var total = res.products.reduce(function(s,p){return s+p.total;},0);
-        var unresolved = res.unresolved;
-        var today = res.day.reduce(function(s,d){return s+d.count;},0);
+      .withSuccessHandler(function(allData) {
+        // 篩選品牌
+        var data = brand==='ALL' ? allData : allData.filter(function(r){ return r['品牌']===brand; });
+        // 篩選處理類型
+        if (caseTypeFilter !== 'ALL') {
+          data = data.filter(function(r){ return r['處理類型']===caseTypeFilter; });
+        }
+
+        var now = new Date();
+        var utc = now.getTime() + now.getTimezoneOffset()*60000;
+        var tw = new Date(utc + 8*60*60000);
+        var todayStr = fmtDate(tw);
+        var monthStr = todayStr.slice(0,7);
+
+        var total = data.length;
+        var unresolved = data.filter(function(r){return r['處理狀態']!=='已結案';}).length;
+        var closed = total - unresolved;
+        var today = data.filter(function(r){return (r['建立日期']||'').slice(0,10)===todayStr;}).length;
+
         document.getElementById('statTotal').innerText = total;
         document.getElementById('statUnresolved').innerText = unresolved;
-        document.getElementById('statClosed').innerText = total - unresolved;
+        document.getElementById('statClosed').innerText = closed;
         document.getElementById('statToday').innerText = today;
 
-        // 當日
-        document.getElementById('daySummary').innerHTML=res.day.length
-          ?'<ul class="list-group list-group-flush">'+res.day.map(function(s){return'<li class="list-group-item d-flex justify-content-between align-items-center">'+escText(s.cat)+'<span class="badge bg-primary rounded-pill">'+s.count+'</span></li>';}).join('')+'</ul>'
-          :'今日尚無資料';
-        // 本月
-        document.getElementById('monthSummary').innerHTML=res.month.length
-          ?'<ul class="list-group list-group-flush">'+res.month.map(function(s){return'<li class="list-group-item d-flex justify-content-between align-items-center">'+escText(s.cat)+'<span class="badge bg-info text-dark rounded-pill">'+s.count+'</span></li>';}).join('')+'</ul>'
-          :'本月尚無資料';
+        // 品牌分布
+        if (brand==='ALL') {
+          var brandMap={};
+          allData.forEach(function(r){var b=r['品牌']||'未知';brandMap[b]=(brandMap[b]||0)+1;});
+          var bHtml='<div class="d-flex flex-wrap gap-2">';
+          Object.keys(brandMap).sort().forEach(function(b){
+            bHtml+='<div class="card card-body py-2 px-3 text-center" style="min-width:80px"><div class="fs-5 fw-bold text-primary">'+brandMap[b]+'</div><div class="small text-muted">'+escText(b)+'</div></div>';
+          });
+          document.getElementById('brandSummary').innerHTML=bHtml+'</div>';
+        }
 
-        // 品項分析
-        if(res.products&&res.products.length){
-          var maxT=res.products[0].total||1;
+        // 依處理類型
+        var typeMap={};
+        data.forEach(function(r){var t=r['處理類型']||'未分類';typeMap[t]=(typeMap[t]||0)+1;});
+        document.getElementById('caseTypeSummary').innerHTML=renderBarList(typeMap, total, 'bg-primary');
+
+        // 依客訴分類
+        var catMap={};
+        data.filter(function(r){return r['客訴分類'];}).forEach(function(r){var c=r['客訴分類'];catMap[c]=(catMap[c]||0)+1;});
+        document.getElementById('catSummary').innerHTML=Object.keys(catMap).length?renderBarList(catMap, total, 'bg-info'):'<div class="text-muted small">無客訴分類資料</div>';
+
+        // 依解決方向
+        var solMap={};
+        data.filter(function(r){return r['解決方向'];}).forEach(function(r){var s=r['解決方向'];solMap[s]=(solMap[s]||0)+1;});
+        document.getElementById('solutionSummary').innerHTML=Object.keys(solMap).length?renderBarList(solMap, total, 'bg-success'):'<div class="text-muted small">無解決方向資料</div>';
+
+        // 派工汶和
+        var dispatched = data.filter(function(r){return r['派工汶和']==='是';}).length;
+        document.getElementById('dispatchSummary').innerHTML=
+          '<div class="d-flex gap-3">'+
+          '<div class="text-center"><div class="fs-4 fw-bold text-warning">'+dispatched+'</div><div class="small text-muted">已派工</div></div>'+
+          '<div class="text-center"><div class="fs-4 fw-bold text-secondary">'+(total-dispatched)+'</div><div class="small text-muted">未派工</div></div>'+
+          '</div>';
+
+        // 依品項
+        var productMap={};
+        data.forEach(function(r){
+          var p=r['客訴產品']||'（無料號）';
+          if(!productMap[p]) productMap[p]={total:0,unresolved:0};
+          productMap[p].total++;
+          if(r['處理狀態']!=='已結案') productMap[p].unresolved++;
+        });
+        var products=Object.keys(productMap).map(function(k){return{product:k,total:productMap[k].total,unresolved:productMap[k].unresolved};}).sort(function(a,b){return b.total-a.total;});
+        if(products.length){
+          var maxT=products[0].total||1;
           var ph='<div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0"><thead><tr><th>料號</th><th>總計</th><th>未解決</th><th style="width:40%">比例</th></tr></thead><tbody>';
-          res.products.forEach(function(p){
+          products.forEach(function(p){
             var pct=Math.round(p.total/maxT*100);
             ph+='<tr style="cursor:pointer" onclick="showProductDetail(\''+escText(p.product)+'\',\''+brand+'\')">'+
               '<td><b class="text-primary text-decoration-underline">'+escText(p.product)+'</b></td>'+
               '<td>'+p.total+'</td><td><span class="badge bg-danger">'+p.unresolved+'</span></td>'+
               '<td><div style="background:#e9ecef;border-radius:4px;"><div style="width:'+pct+'%;height:18px;background:#0d6efd;border-radius:4px;"></div></div></td></tr>';
           });
-          document.getElementById('productSummary').innerHTML=ph+'</tbody></table></div><p class="text-muted small mt-1 mb-0">💡 點擊料號可查看詳細趨勢</p>';
+          document.getElementById('productSummary').innerHTML=ph+'</tbody></table></div>';
         } else {
-          document.getElementById('productSummary').innerHTML='尚無品項資料';
+          document.getElementById('productSummary').innerHTML='<div class="text-muted small">無品項資料</div>';
         }
 
-        // 趨勢圖
-        if(dateChartInstance){dateChartInstance.destroy();}
+        // 近30天趨勢
+        var dateStats={};
+        var dateLabels=[];
+        for(var i=29;i>=0;i--){
+          var d=new Date(tw.getTime()-i*86400000);
+          var ds=fmtDate(d); dateStats[ds]=0; dateLabels.push(ds.slice(5));
+        }
+        data.forEach(function(r){var d=(r['建立日期']||'').slice(0,10);if(dateStats.hasOwnProperty(d))dateStats[d]++;});
+        var dateCounts=Object.keys(dateStats).sort().map(function(k){return dateStats[k];});
+        if(dateChartInstance) dateChartInstance.destroy();
         dateChartInstance=new Chart(document.getElementById('dateChart').getContext('2d'),{
           type:'line',
-          data:{labels:res.dates.map(function(d){return d.date.slice(5);}),datasets:[{label:'客訴件數',data:res.dates.map(function(d){return d.count;}),borderColor:'#0d6efd',backgroundColor:'rgba(13,110,253,0.08)',tension:0.3,fill:true,pointRadius:3}]},
+          data:{labels:dateLabels,datasets:[{label:'案件數',data:dateCounts,borderColor:'#0d6efd',backgroundColor:'rgba(13,110,253,0.08)',tension:0.3,fill:true,pointRadius:3}]},
           options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}
         });
+
+        // 當日
+        var dayMap={};
+        data.filter(function(r){return (r['建立日期']||'').slice(0,10)===todayStr;}).forEach(function(r){var c=r['客訴分類']||r['處理類型']||'未分類';dayMap[c]=(dayMap[c]||0)+1;});
+        document.getElementById('daySummary').innerHTML=Object.keys(dayMap).length?renderList(dayMap,'bg-primary'):'今日尚無資料';
+
+        // 本月
+        var monMap={};
+        data.filter(function(r){return (r['建立日期']||'').slice(0,7)===monthStr;}).forEach(function(r){var c=r['客訴分類']||r['處理類型']||'未分類';monMap[c]=(monMap[c]||0)+1;});
+        document.getElementById('monthSummary').innerHTML=Object.keys(monMap).length?renderList(monMap,'bg-info text-dark'):'本月尚無資料';
       })
       .withFailureHandler(function(err){
         document.getElementById('productSummary').innerHTML='<div class="alert alert-danger">載入失敗：'+escText(String(err))+'</div>';
       })
-      .getDashboardData(brand);
+      .getBrandRecords('ALL');
+  }
+
+  function renderList(map, badgeClass) {
+    var html='<ul class="list-group list-group-flush">';
+    Object.keys(map).sort(function(a,b){return map[b]-map[a];}).forEach(function(k){
+      html+='<li class="list-group-item d-flex justify-content-between align-items-center">'+escText(k)+'<span class="badge '+badgeClass+' rounded-pill">'+map[k]+'</span></li>';
+    });
+    return html+'</ul>';
+  }
+
+  function renderBarList(map, total, barClass) {
+    var html='<div>';
+    var sorted=Object.keys(map).sort(function(a,b){return map[b]-map[a];});
+    sorted.forEach(function(k){
+      var pct=total>0?Math.round(map[k]/total*100):0;
+      html+='<div class="d-flex align-items-center gap-2 mb-2 small">'+
+        '<div style="min-width:100px;max-width:100px;" class="text-truncate" title="'+escText(k)+'">'+escText(k)+'</div>'+
+        '<div class="flex-grow-1" style="background:#e9ecef;border-radius:4px;height:16px;">'+
+        '<div style="width:'+pct+'%;height:16px;background:#0d6efd;border-radius:4px;" class="'+barClass+'"></div></div>'+
+        '<div style="min-width:45px;" class="text-end text-muted">'+map[k]+'筆</div>'+
+        '</div>';
+    });
+    return html+'</div>';
   }
 
   function showProductDetail(product, brand) {
@@ -172,36 +320,49 @@
 
     google.script.run
       .withSuccessHandler(function(data){
+        // 篩選該料號
         var filtered=data.filter(function(r){return r['客訴產品']===product;});
+        if(brand!=='ALL') filtered=filtered.filter(function(r){return r['品牌']===brand;});
+
         var total=filtered.length;
         var unresolved=filtered.filter(function(r){return r['處理狀態']!=='已結案';}).length;
         document.getElementById('pmTotal').innerText=total;
         document.getElementById('pmUnresolved').innerText=unresolved;
         document.getElementById('pmClosed').innerText=total-unresolved;
 
-        var now=new Date(),dateMap={},dateLabels=[],dateCounts=[];
-        for(var i=29;i>=0;i--){var d=new Date(now.getTime()-i*86400000);var ds=d.toISOString().slice(0,10);dateMap[ds]=0;dateLabels.push(ds.slice(5));}
-        filtered.forEach(function(r){var d=r['客訴日期']?r['客訴日期'].slice(0,10):'';if(dateMap.hasOwnProperty(d))dateMap[d]++;});
+        var now=new Date(), utc=now.getTime()+now.getTimezoneOffset()*60000, tw=new Date(utc+8*60*60000);
+        var dateMap={},dateLabels=[],dateCounts=[];
+        for(var i=29;i>=0;i--){var d=new Date(tw.getTime()-i*86400000);var ds=fmtDate(d);dateMap[ds]=0;dateLabels.push(ds.slice(5));}
+        filtered.forEach(function(r){var d=(r['建立日期']||'').slice(0,10);if(dateMap.hasOwnProperty(d))dateMap[d]++;});
         Object.keys(dateMap).sort().forEach(function(k){dateCounts.push(dateMap[k]);});
 
-        if(productDateChartInst){productDateChartInst.destroy();}
-        productDateChartInst=new Chart(document.getElementById('productDateChart').getContext('2d'),{type:'line',data:{labels:dateLabels,datasets:[{label:'件數',data:dateCounts,borderColor:'#0d6efd',backgroundColor:'rgba(13,110,253,0.08)',tension:0.3,fill:true,pointRadius:3}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}});
+        if(productDateChartInst) productDateChartInst.destroy();
+        productDateChartInst=new Chart(document.getElementById('productDateChart').getContext('2d'),{
+          type:'line',data:{labels:dateLabels,datasets:[{label:'件數',data:dateCounts,borderColor:'#0d6efd',backgroundColor:'rgba(13,110,253,0.08)',tension:0.3,fill:true,pointRadius:3}]},
+          options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}
+        });
 
         var catMap={};
-        filtered.forEach(function(r){var cat=r['客訴分類']||'未分類';catMap[cat]=(catMap[cat]||0)+1;});
+        filtered.forEach(function(r){var c=r['客訴分類']||'未分類';catMap[c]=(catMap[c]||0)+1;});
         var catLabels=Object.keys(catMap),catData=catLabels.map(function(k){return catMap[k];});
-        if(productCatChartInst){productCatChartInst.destroy();}
-        productCatChartInst=new Chart(document.getElementById('productCatChart').getContext('2d'),{type:'doughnut',data:{labels:catLabels,datasets:[{data:catData,backgroundColor:['#0d6efd','#fd7e14','#198754','#dc3545','#6f42c1','#20c997'].slice(0,catLabels.length)}]},options:{plugins:{legend:{position:'bottom',labels:{font:{size:11}}}}}});
+        if(productCatChartInst) productCatChartInst.destroy();
+        productCatChartInst=new Chart(document.getElementById('productCatChart').getContext('2d'),{
+          type:'doughnut',data:{labels:catLabels,datasets:[{data:catData,backgroundColor:['#0d6efd','#fd7e14','#198754','#dc3545','#6f42c1','#20c997'].slice(0,catLabels.length)}]},
+          options:{plugins:{legend:{position:'bottom',labels:{font:{size:11}}}}}
+        });
 
         var rHtml=filtered.length?'':'<div class="text-muted small">尚無記錄</div>';
         filtered.slice(0,5).forEach(function(r){
           var sc=r['處理狀態']==='已結案'?'bg-success':'bg-warning text-dark';
-          rHtml+='<div class="d-flex justify-content-between align-items-start border-bottom py-2 small"><div><b>'+escText(r['編碼'])+'</b> <span class="text-muted">'+escText(r['客訴日期'])+'</span><br>'+escText(r['客訴內容']?r['客訴內容'].slice(0,40)+(r['客訴內容'].length>40?'…':''):'')+'</div><span class="badge '+sc+' ms-2 flex-shrink-0">'+escText(r['處理狀態'])+'</span></div>';
+          rHtml+='<div class="d-flex justify-content-between align-items-start border-bottom py-2 small">'+
+            '<div><b>'+escText(r['編碼'])+'</b> <span class="text-muted">'+escText(r['建立日期'])+'</span> - '+escText(r['客人名稱'])+'<br>'+
+            escText((r['客訴內容']||'').slice(0,50)+((r['客訴內容']||'').length>50?'…':''))+'</div>'+
+            '<span class="badge '+sc+' ms-2 flex-shrink-0">'+escText(r['處理狀態'])+'</span></div>';
         });
         document.getElementById('pmRecentList').innerHTML=rHtml;
       })
       .withFailureHandler(function(err){document.getElementById('pmRecentList').innerHTML='<div class="alert alert-danger">載入失敗：'+escText(String(err))+'</div>';})
-      .getBrandRecords(brand);
+      .getBrandRecords('ALL');
   }
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
